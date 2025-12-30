@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { User, Role } from '../../../types';
 import { Users, Search, RefreshCw } from 'lucide-react';
 
 const AdminUsersView: React.FC = () => {
+    const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>(mockBackend.getUsers());
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,7 +34,7 @@ const AdminUsersView: React.FC = () => {
         if (newPass) {
             const updated = { ...u, password: newPass };
             mockBackend.updateUser(updated); // We added this method!
-            alert('Contraseña actualizada');
+            showToast('Contraseña actualizada', 'success');
             refresh();
         }
     };

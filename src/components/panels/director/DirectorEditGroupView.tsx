@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { Church, SmallGroup } from '../../../types';
 import { Save, Trash2 } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Save, Trash2 } from 'lucide-react';
 const DirectorEditGroupView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [gps, setGps] = useState<SmallGroup[]>([]);
     const [selectedGpId, setSelectedGpId] = useState('');
 
@@ -45,7 +47,7 @@ const DirectorEditGroupView: React.FC = () => {
         e.preventDefault();
         if (formData) {
             mockBackend.updateGP(formData);
-            alert('Grupo actualizado exitosamente');
+            showToast('Grupo actualizado exitosamente', 'success');
             navigate('/director/groups');
         }
     };

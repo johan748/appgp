@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
+import { useToast } from '../../../context/ToastContext';
 import { SmallGroup, Member } from '../../../types';
 import { Save } from 'lucide-react';
 
 const AddMemberView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -25,6 +27,7 @@ const AddMemberView: React.FC = () => {
         e.preventDefault();
         if (gp) {
             const newMember: any = {
+                id: Math.random().toString(36).substr(2, 9), // Generate ID
                 ...formData,
                 isBaptized: formData.isBaptized === 'Sí',
                 gpId: gp.id,
@@ -34,7 +37,7 @@ const AddMemberView: React.FC = () => {
             };
 
             mockBackend.addMember(newMember);
-            alert('Miembro agregado exitosamente');
+            showToast('Miembro agregado exitosamente', 'success');
             navigate('/leader/members');
         }
     };

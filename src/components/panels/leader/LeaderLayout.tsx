@@ -59,32 +59,40 @@ const LeaderLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50 pb-10">
             {/* Top Navigation / Header */}
-            <header className="bg-white shadow sticky top-0 z-10">
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
                             {!isHome && (
-                                <button onClick={() => navigate('/leader')} className="p-1 hover:bg-gray-100 rounded-full">
+                                <button onClick={() => navigate('/leader')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                                     <ArrowLeft size={20} className="text-gray-600" />
                                 </button>
                             )}
                             <div>
-                                <h1 className="text-xl font-bold text-primary">{gp.name}</h1>
-                                <p className="text-sm text-gray-500 hidden md:block">{gp.motto} | {gp.verse}</p>
-                                <p className="text-xs text-gray-400">{gp.meetingDay} - {gp.meetingTime}</p>
+                                <h1 className="text-xl font-bold text-[#3e8391]">{gp.name}</h1>
+                                <div className="flex items-center space-x-2">
+                                    <p className="text-xs text-gray-500 font-medium hidden md:block">{gp.motto}</p>
+                                    <span className="text-gray-300 hidden md:block">|</span>
+                                    <p className="text-xs text-gray-400 italic">{gp.meetingDay} - {gp.meetingTime}</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="font-medium text-gray-900 text-sm md:text-base">{getWelcomeMessage()}</p>
-                            <button onClick={logout} className="text-xs text-red-500 hover:text-red-700">Cerrar Sesión</button>
+                        <div className="flex items-center space-x-4">
+                            <div className="text-right hidden sm:block">
+                                <p className="font-bold text-gray-800 text-sm">{getWelcomeMessage()}</p>
+                                <button onClick={() => { logout(); navigate('/login'); }} className="text-xs font-semibold text-red-500 hover:text-red-700">Cerrar Sesión</button>
+                            </div>
+                            <div className="h-10 w-10 bg-[#3e8391] text-white rounded-full flex items-center justify-center font-bold text-lg">
+                                {user?.name?.charAt(0)}
+                            </div>
                         </div>
                     </div>
 
                     {/* Config Toggle */}
-                    <div className="mt-2">
+                    <div className="mt-2 text-right">
                         <button
                             onClick={() => setIsConfigOpen(!isConfigOpen)}
-                            className="flex items-center space-x-1 text-xs text-gray-600 hover:text-primary"
+                            className="inline-flex items-center space-x-1 text-xs font-bold text-gray-500 hover:text-[#3e8391] transition-colors"
                         >
                             <Settings size={14} />
                             <span>Configuración</span>

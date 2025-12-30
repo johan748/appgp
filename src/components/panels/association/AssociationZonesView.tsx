@@ -3,9 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { Association, Zone } from '../../../types';
 import { MapPin, Users, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const AssociationZonesView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
+    const { showToast } = useToast();
     const [zones, setZones] = useState<Zone[]>([]);
     const [stats, setStats] = useState<Record<string, { districts: number, churches: number }>>({});
 
@@ -162,9 +164,9 @@ const AssociationZonesView: React.FC = () => {
 
             setIsModalOpen(false);
             loadData();
-            alert(editingZone ? 'Zona actualizada exitosamente' : 'Zona guardada exitosamente');
+            showToast(editingZone ? 'Zona actualizada exitosamente' : 'Zona guardada exitosamente', 'success');
         } catch (error: any) {
-            alert(error.message);
+            showToast(error.message, 'error');
         }
     };
 
@@ -173,9 +175,9 @@ const AssociationZonesView: React.FC = () => {
             try {
                 mockBackend.deleteZone(id);
                 loadData();
-                alert('Zona eliminada correctamente');
+                showToast('Zona eliminada correctamente', 'success');
             } catch (e: any) {
-                alert('Error al eliminar la zona: ' + e.message);
+                showToast('Error al eliminar la zona: ' + e.message, 'error');
             }
         }
     };
@@ -184,7 +186,7 @@ const AssociationZonesView: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">Zonas de la Asociación</h2>
-                <button onClick={handleCreate} className="btn btn-primary bg-primary text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                <button onClick={handleCreate} className="btn btn-primary flex items-center">
                     <Plus size={20} className="mr-2" />
                     Nueva Zona
                 </button>
@@ -298,7 +300,7 @@ const AssociationZonesView: React.FC = () => {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
                                     Cancelar
                                 </button>
-                                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-blue-700 flex items-center">
+                                <button type="submit" className="px-4 py-2 btn btn-primary flex items-center">
                                     <Save size={18} className="mr-2" />
                                     Guardar
                                 </button>

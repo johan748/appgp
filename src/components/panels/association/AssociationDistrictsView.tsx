@@ -3,9 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { Association, District, Zone } from '../../../types';
 import { MapPin, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const AssociationDistrictsView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
+    const { showToast } = useToast();
     const [districts, setDistricts] = useState<District[]>([]);
     const [zones, setZones] = useState<Zone[]>([]);
 
@@ -108,7 +110,7 @@ const AssociationDistrictsView: React.FC = () => {
         e.preventDefault();
 
         if (!formData.zoneId) {
-            alert('Debe seleccionar una Zona');
+            showToast('Debe seleccionar una Zona', 'warning');
             return;
         }
 
@@ -189,9 +191,9 @@ const AssociationDistrictsView: React.FC = () => {
 
             setIsModalOpen(false);
             loadData();
-            alert(editingDistrict ? 'Distrito actualizado exitosamente' : 'Distrito guardado exitosamente');
+            showToast(editingDistrict ? 'Distrito actualizado exitosamente' : 'Distrito guardado exitosamente', 'success');
         } catch (error: any) {
-            alert(error.message);
+            showToast(error.message, 'error');
         }
     };
 
@@ -200,9 +202,9 @@ const AssociationDistrictsView: React.FC = () => {
             try {
                 mockBackend.deleteDistrict(id);
                 loadData();
-                alert('Distrito eliminado correctamente');
+                showToast('Distrito eliminado correctamente', 'success');
             } catch (e: any) {
-                alert('Error al eliminar: ' + e.message);
+                showToast('Error al eliminar: ' + e.message, 'error');
             }
         }
     };
@@ -214,7 +216,7 @@ const AssociationDistrictsView: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">Distritos de la Asociación</h2>
-                <button onClick={handleCreate} className="btn btn-primary bg-primary text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                <button onClick={handleCreate} className="btn btn-primary flex items-center">
                     <Plus size={20} className="mr-2" />
                     Nuevo Distrito
                 </button>
@@ -388,7 +390,7 @@ const AssociationDistrictsView: React.FC = () => {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
                                     Cancelar
                                 </button>
-                                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-blue-700 flex items-center">
+                                <button type="submit" className="px-4 py-2 btn btn-primary flex items-center">
                                     <Save size={18} className="mr-2" />
                                     Guardar
                                 </button>

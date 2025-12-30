@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { District, SmallGroup, Church } from '../../../types';
 import { Save } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Save } from 'lucide-react';
 const PastorEditGroupView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [gps, setGps] = useState<SmallGroup[]>([]);
@@ -58,7 +60,7 @@ const PastorEditGroupView: React.FC = () => {
         e.preventDefault();
         if (formData) {
             mockBackend.updateGP(formData);
-            alert('Grupo actualizado exitosamente');
+            showToast('Grupo actualizado exitosamente', 'success');
             // navigate('/pastor/groups'); // Optional redirect
         }
     };
@@ -151,7 +153,7 @@ const PastorEditGroupView: React.FC = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                        <button type="submit" className="btn btn-primary bg-primary text-white px-4 py-2 rounded shadow hover:bg-blue-700">
+                        <button type="submit" className="btn btn-primary">
                             <Save className="mr-2 inline" size={18} />
                             Guardar Cambios
                         </button>

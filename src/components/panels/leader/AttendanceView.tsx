@@ -3,10 +3,12 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { SmallGroup, Member, MissionaryPair } from '../../../types';
 import { Save } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const AttendanceView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [members, setMembers] = useState<Member[]>([]);
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
@@ -78,7 +80,8 @@ const AttendanceView: React.FC = () => {
             summary: {
                 totalAttendance,
                 totalStudies,
-                totalGuests
+                totalGuests,
+                baptisms: Number(baptisms)
             }
         };
 
@@ -86,7 +89,7 @@ const AttendanceView: React.FC = () => {
         reports.push(newReport);
         localStorage.setItem('app_reports', JSON.stringify(reports));
 
-        alert('Reporte enviado con éxito');
+        showToast('Reporte enviado con éxito', 'success');
         navigate('/leader/reports');
     };
 

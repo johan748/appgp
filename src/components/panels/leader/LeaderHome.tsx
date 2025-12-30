@@ -87,20 +87,20 @@ const LeaderHome: React.FC = () => {
 };
 
 const GoalCard = ({ title, value, period }: { title: string, value: string | number, period: string }) => (
-    <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-blue-500 hover:shadow-lg transition-shadow">
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">{period}</p>
-        <p className="text-3xl font-bold text-gray-800 my-1">{value}</p>
-        <p className="text-xs font-medium text-gray-600">{title}</p>
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition-all duration-300">
+        <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">{period}</p>
+        <p className="text-3xl font-bold text-[#3e8391] my-1">{value}</p>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-tight">{title}</p>
     </div>
 );
 
 const MenuButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow hover:shadow-lg hover:bg-blue-50 transition-all duration-200 border border-transparent hover:border-blue-100"
+        className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm hover:shadow-lg hover:bg-[#3e839105] transition-all duration-300 border border-gray-100 hover:border-[#3e839140] group"
     >
-        <div className="text-primary mb-3 p-3 bg-blue-50 rounded-full">{icon}</div>
-        <span className="font-bold text-gray-700">{label}</span>
+        <div className="text-[#3e8391] mb-3 p-4 bg-[#3e839110] rounded-2xl group-hover:scale-110 transition-transform">{icon}</div>
+        <span className="font-bold text-gray-700 text-sm">{label}</span>
     </button>
 );
 

@@ -41,7 +41,8 @@ const MissionaryPairsView: React.FC = () => {
                 gpId: gp.id,
                 member1Id: selectedMember1,
                 member2Id: selectedMember2,
-                studiesGiven: 0
+                studiesGiven: 0,
+                createdAt: new Date().toISOString()
             };
 
             const currentPairs = mockBackend.getMissionaryPairs();
@@ -58,6 +59,14 @@ const MissionaryPairsView: React.FC = () => {
     const getMemberName = (id: string) => {
         const m = members.find(mem => mem.id === id);
         return m ? `${m.firstName} ${m.lastName}` : 'Desconocido';
+    };
+
+    const getStudiesGiven = (pairId: string) => {
+        const reports = mockBackend.getReports().filter(r => r.gpId === gp.id);
+        return reports.reduce((total, report) => {
+            const pairStat = report.missionaryPairsStats.find((stat: { pairId: string; studiesGiven: number }) => stat.pairId === pairId);
+            return total + (pairStat ? pairStat.studiesGiven : 0);
+        }, 0);
     };
 
     return (
@@ -128,7 +137,7 @@ const MissionaryPairsView: React.FC = () => {
                                 <div>
                                     <p className="font-bold text-gray-800">{getMemberName(pair.member1Id)}</p>
                                     <p className="font-bold text-gray-800">{getMemberName(pair.member2Id)}</p>
-                                    <p className="text-sm text-gray-500 mt-1">Estudios dados: {pair.studiesGiven}</p>
+                                    <p className="text-sm text-gray-500 mt-1">Estudios dados: {getStudiesGiven(pair.id)}</p>
                                 </div>
                             </div>
                             <button

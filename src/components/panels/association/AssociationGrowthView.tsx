@@ -44,8 +44,13 @@ const AssociationGrowthView: React.FC = () => {
                 const actualStudies = reports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
                 const actualGuests = reports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
 
-                // Get missionary pairs count
-                const allPairs = mockBackend.getMissionaryPairs().filter(p => gps.some(g => g.id === p.gpId));
+                // Get missionary pairs count (filtered by creation date)
+                const allPairs = mockBackend.getMissionaryPairs().filter(p => {
+                    if (!gps.some(g => g.id === p.gpId)) return false;
+                    if (!p.createdAt) return true; // Include if no date (backward compatibility)
+                    const createdDate = new Date(p.createdAt);
+                    return createdDate >= startDate && createdDate < endDate;
+                });
 
                 // Goals from district
                 const goalBaptisms = d.goals?.baptisms?.target || 0;

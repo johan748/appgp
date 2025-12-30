@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { Member } from '../../../types';
 import { Save, ArrowLeft } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const EditMemberView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [member, setMember] = useState<Member | null>(null);
 
     const [formData, setFormData] = useState({
@@ -51,11 +53,13 @@ const EditMemberView: React.FC = () => {
             const updatedMember: Member = {
                 ...member,
                 ...formData,
-                isBaptized: formData.isBaptized === 'Sí'
+                isBaptized: formData.isBaptized === 'Sí',
+                gender: formData.gender as 'M' | 'F',
+                role: formData.role as 'MIEMBRO' | 'LIDER' | 'LIDER_EN_FORMACION' | 'SECRETARIO'
             };
 
             mockBackend.updateMember(updatedMember);
-            alert('Miembro actualizado exitosamente');
+            showToast('Miembro actualizado exitosamente', 'success');
             navigate('/leader/members');
         }
     };

@@ -1,4 +1,4 @@
-export type Role = 'LIDER_GP' | 'DIRECTOR_MP' | 'PASTOR' | 'DIRECTOR_ZONA' | 'ASOCIACION' | 'ADMIN';
+export type Role = 'ADMIN' | 'UNION' | 'ASOCIACION' | 'DIRECTOR_ZONA' | 'PASTOR' | 'DIRECTOR_MP' | 'LIDER_GP' | 'SECRETARIO' | 'LIDER_EN_FORMACION' | 'MIEMBRO';
 
 export interface User {
     id: string;
@@ -7,6 +7,16 @@ export interface User {
     role: Role;
     relatedEntityId?: string; // ID of the GP, Church, District, etc. they manage
     name: string; // Display name
+}
+
+export interface Union {
+    id: string;
+    name: string;
+    evangelismDepartmentHead: string;
+    config?: {
+        username: string;
+        password: string;
+    };
 }
 
 export interface Member {
@@ -84,7 +94,7 @@ export interface Association {
     id: string;
     name: string;
     departmentHead: string;
-    unionName: string;
+    unionId: string;
     membershipCount: number;
     config: {
         username: string;
@@ -99,6 +109,7 @@ export interface MissionaryPair {
     member1Id: string;
     member2Id: string;
     studiesGiven: number;
+    createdAt: string; // ISO date string
 }
 
 export interface WeeklyReport {

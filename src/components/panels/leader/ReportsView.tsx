@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { SmallGroup, WeeklyReport, Member, MissionaryPair } from '../../../types';
-import { Check, X } from 'lucide-react';
+import { Check, X, Trash2, Calendar } from 'lucide-react';
 
 const ReportsView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
@@ -29,6 +29,17 @@ const ReportsView: React.FC = () => {
             setCurrentReport(null);
         }
     }, [selectedDate, reports]);
+
+    const navigate = useNavigate();
+
+    const handleDelete = () => {
+        if (currentReport && confirm('¿Estás seguro de eliminar este reporte?')) {
+            mockBackend.deleteReport(currentReport.id);
+            setReports(reports.filter(r => r.id !== currentReport.id));
+            setCurrentReport(null);
+            setSelectedDate('');
+        }
+    };
 
     const getMemberName = (id: string) => {
         const m = members.find(mem => mem.id === id);
@@ -59,6 +70,23 @@ const ReportsView: React.FC = () => {
 
             {currentReport ? (
                 <div className="space-y-6 animate-fade-in">
+                    <div className="flex justify-end space-x-2">
+                        <button
+                            onClick={() => navigate(`/leader/edit-report/${currentReport.id}`)}
+                            className="flex items-center space-x-1 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                        >
+                            <Calendar size={18} />
+                            <span>Editar</span>
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                        >
+                            <Trash2 size={18} />
+                            <span>Eliminar</span>
+                        </button>
+                    </div>
+
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-blue-500">
@@ -74,8 +102,8 @@ const ReportsView: React.FC = () => {
                             <p className="text-sm text-gray-500">Amigos Invitados</p>
                         </div>
                         <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-orange-500">
-                            <p className="text-3xl font-bold text-gray-800">{currentReport.summary.baptisms || 0}</p>
                             <p className="text-sm text-gray-500">Bautismos</p>
+                            <p className="text-3xl font-bold text-gray-800">{currentReport.baptisms || 0}</p>
                         </div>
                     </div>
 

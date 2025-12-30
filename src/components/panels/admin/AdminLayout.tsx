@@ -17,24 +17,27 @@ const AdminLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
             {/* Standard Header */}
-            <header className="bg-gray-800 text-white shadow sticky top-0 z-10">
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
                             {!isHome && (
-                                <button onClick={() => navigate('/admin')} className="p-1 hover:bg-gray-700 rounded-full">
-                                    <ArrowLeft size={20} className="text-gray-300" />
+                                <button onClick={() => navigate('/admin')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                    <ArrowLeft size={20} className="text-gray-600" />
                                 </button>
                             )}
                             <div>
-                                <h1 className="text-xl font-bold">Panel de Administración</h1>
-                                <p className="text-xs text-gray-400">Control Total del Sistema</p>
+                                <h1 className="text-xl font-bold text-[#3e8391]">Panel de Administración</h1>
+                                <p className="text-xs text-gray-500">Control Total del Sistema</p>
                             </div>
                         </div>
-                        <div className="text-right flex items-center space-x-4">
-                            <span className="text-sm hidden md:inline">{getWelcomeMessage()}</span>
-                            <button onClick={logout} className="text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white">
-                                Salir
+                        <div className="flex items-center space-x-4">
+                            <span className="text-sm font-medium text-gray-700 hidden md:inline">{getWelcomeMessage()}</span>
+                            <div className="h-10 w-10 bg-[#3e8391] text-white rounded-full flex items-center justify-center font-bold text-lg">
+                                {user?.name?.charAt(0)}
+                            </div>
+                            <button onClick={() => { logout(); navigate('/login'); }} className="text-xs font-semibold text-red-600 hover:text-red-700 ml-2">
+                                Cerrar Sesión
                             </button>
                         </div>
                     </div>
@@ -47,7 +50,7 @@ const AdminLayout: React.FC = () => {
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <nav className="flex flex-col">
                             <NavItem to="/admin" icon={<Settings size={18} />} label="Dashboard" active={isHome} />
-                            <NavItem to="/admin/associations" icon={<Building size={18} />} label="Asociaciones" active={location.pathname.includes('associations')} />
+                            <NavItem to="/admin/unions" icon={<Building size={18} />} label="Gestionar Uniones" active={location.pathname.includes('unions')} />
                             <NavItem to="/admin/users" icon={<Users size={18} />} label="Usuarios" active={location.pathname.includes('users')} />
                             <NavItem to="/admin/data" icon={<Database size={18} />} label="Gestión de Datos" active={location.pathname.includes('data')} />
                             <NavItem to="/admin/config" icon={<Shield size={18} />} label="Seguridad/Config" active={location.pathname.includes('config')} />
@@ -69,12 +72,14 @@ const NavItem = ({ to, icon, label, active }: { to: string, icon: React.ReactNod
     return (
         <button
             onClick={() => navigate(to)}
-            className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium transition-colors ${active
-                    ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+            className={`flex items-center space-x-3 px-4 py-4 text-sm font-semibold transition-all ${active
+                ? 'bg-[#3e839115] text-[#3e8391] border-l-4 border-[#3e8391]'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
                 }`}
         >
-            {icon}
+            <div className={`${active ? 'text-[#3e8391]' : 'text-gray-400'}`}>
+                {icon}
+            </div>
             <span>{label}</span>
         </button>
     );

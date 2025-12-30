@@ -3,13 +3,14 @@ import { useOutletContext } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { Association } from '../../../types';
 import { Settings, Save, Lock, User, Target } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const AssociationConfigView: React.FC = () => {
     const { association, refreshAssociation } = useOutletContext<{ association: Association; refreshAssociation: () => void }>();
+    const { showToast } = useToast();
 
     // State initialization
     const [assocName, setAssocName] = useState(association.name);
-    const [unionName, setUnionName] = useState(association.unionName);
     const [departmentHead, setDepartmentHead] = useState(association.departmentHead || '');
     const [membershipCount, setMembershipCount] = useState(association.membershipCount || 0);
 
@@ -20,7 +21,6 @@ const AssociationConfigView: React.FC = () => {
     // Sync state if association changes (e.g. after refresh)
     React.useEffect(() => {
         setAssocName(association.name);
-        setUnionName(association.unionName);
         setDepartmentHead(association.departmentHead || '');
         setMembershipCount(association.membershipCount || 0);
         setUsername(association.config.username);
@@ -35,7 +35,6 @@ const AssociationConfigView: React.FC = () => {
             const updatedAssoc: Association = {
                 ...association,
                 name: assocName,
-                unionName,
                 departmentHead,
                 membershipCount,
                 config: {
@@ -47,9 +46,9 @@ const AssociationConfigView: React.FC = () => {
 
             mockBackend.updateAssociation(updatedAssoc);
             refreshAssociation(); // Update parent state
-            alert('Configuración guardada exitosamente. Las credenciales de acceso se han actualizado.');
+            showToast('Configuración guardada exitosamente. Las credenciales de acceso se han actualizado.', 'success');
         } catch (error: any) {
-            alert('Error al guardar: ' + error.message);
+            showToast('Error al guardar: ' + error.message, 'error');
         }
     };
 
@@ -74,8 +73,9 @@ const AssociationConfigView: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nombre de la Unión</label>
-                            <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                value={unionName} onChange={e => setUnionName(e.target.value)} />
+                            <p className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-100 text-gray-600">
+                                {mockBackend.getUnionById(association.unionId)?.name || 'Unión no encontrada'}
+                            </p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nombre Departamental (Dir. MP)</label>
@@ -134,7 +134,7 @@ const AssociationConfigView: React.FC = () => {
                 </div>
 
                 <div className="pt-4 flex justify-end">
-                    <button type="submit" className="bg-primary text-white px-6 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                    <button type="submit" className="btn btn-primary">
                         <Save size={18} className="mr-2" />
                         Guardar Configuración
                     </button>

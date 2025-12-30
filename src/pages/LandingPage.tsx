@@ -1,24 +1,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Heart, Globe, ArrowRight } from 'lucide-react';
+import { Users, Users2, BarChart3 } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-white flex flex-col">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex flex-col">
             {/* Header */}
-            <header className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                        <div className="bg-primary text-white p-2 rounded-lg">
-                            <Users size={24} />
-                        </div>
-                        <span className="text-xl font-bold text-gray-900">Sistema GP</span>
+            <header className="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-slate-100">
+                <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center">
+                    <div className="flex items-center space-x-3">
+                        <img src="/logo_gp_transparent.png" alt="Logo GP" className="h-10 w-auto" />
+                        <span className="text-xl font-bold text-slate-900 tracking-tight">Sistema GP</span>
                     </div>
                     <button
                         onClick={() => navigate('/login')}
-                        className="px-4 py-2 text-primary font-medium hover:bg-blue-50 rounded-lg transition-colors"
+                        className="px-5 py-2.5 text-[#2c7a8c] font-semibold hover:bg-slate-50 rounded-xl transition-all text-sm"
                     >
                         Iniciar Sesión
                     </button>
@@ -26,63 +24,91 @@ const LandingPage: React.FC = () => {
             </header>
 
             {/* Hero Section */}
-            <section className="flex-grow flex items-center justify-center bg-gradient-to-b from-blue-50 to-white py-20">
-                <div className="container mx-auto px-4 text-center">
-                    <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-                        Gestión Integral de <br />
-                        <span className="text-primary">Grupos Pequeños</span>
-                    </h1>
-                    <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-                        Una plataforma unificada para Líderes, Directores y Pastores.
-                        Administra miembros, reportes y el crecimiento de tu comunidad.
-                    </p>
-                    <button
-                        onClick={() => navigate('/login')}
-                        className="btn btn-primary text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
-                    >
-                        Ingresar al Sistema <ArrowRight className="ml-2 inline" />
-                    </button>
+            <section className="flex-grow flex items-center py-20 lg:py-28">
+                <div className="max-w-7xl mx-auto px-6 lg:px-8 w-full">
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        {/* Left: Text Content */}
+                        <div className="space-y-8">
+                            <div className="space-y-6">
+                                <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
+                                    Gestión Integral de{' '}
+                                    <span className="text-[#2c7a8c]">Grupos Pequeños</span>
+                                </h1>
+                                <p className="text-lg lg:text-xl text-slate-600 leading-relaxed max-w-xl">
+                                    Una solución premium diseñada para la administración de los miembros, monitoreo del crecimiento y automatización de reportes, en un solo lugar.
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#2c7a8c] to-[#3e8391] text-white font-semibold rounded-[20px] shadow-lg shadow-[#2c7a8c]/25 hover:shadow-xl hover:shadow-[#2c7a8c]/30 hover:-translate-y-0.5 transition-all duration-200 text-lg"
+                            >
+                                Ingresar al Sistema
+                            </button>
+                        </div>
+
+                        {/* Right: Image with gps.png */}
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-tr from-[#2c7a8c]/10 to-transparent rounded-[24px] -z-10 blur-2xl transform scale-105"></div>
+                            <div className="relative rounded-[24px] overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-200/50">
+                                <img
+                                    src="/gps1.png"
+                                    alt="Sistema de Gestión"
+                                    className="w-full h-auto"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            {/* Features Grid */}
-            <section className="py-20 bg-white">
-                <div className="container mx-auto px-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {/* Features Section */}
+            <section className="py-20 lg:py-28 bg-gradient-to-b from-white to-slate-50">
+                <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                    <div className="grid md:grid-cols-3 gap-8 lg:gap-10">
                         <FeatureCard
-                            icon={<Users size={40} className="text-blue-500" />}
                             title="Gestión de Miembros"
-                            description="Mantén actualizada la información de tu grupo, asistencia y progreso de liderazgo."
+                            description="Mantén actualizada la información de tu Grupo Pequeño, asistencia y progreso del liderazgo"
+                            icon={<Users className="w-8 h-8 text-[#2c7a8c]" />}
                         />
                         <FeatureCard
-                            icon={<Heart size={40} className="text-red-500" />}
                             title="Parejas Misioneras"
                             description="Organiza y monitorea el trabajo misionero y estudios bíblicos."
+                            icon={<Users2 className="w-8 h-8 text-[#2c7a8c]" />}
                         />
                         <FeatureCard
-                            icon={<Globe size={40} className="text-green-500" />}
                             title="Reportes en Tiempo Real"
-                            description="Visualiza el avance de tu distrito y zona con estadísticas actualizadas."
+                            description="Visualiza el avance de los Grupos Pequeños, Iglesias, Distritos, Zonas y Campos con estadísticas actualizadas"
+                            icon={<BarChart3 className="w-8 h-8 text-[#2c7a8c]" />}
                         />
                     </div>
                 </div>
             </section>
 
             {/* Footer */}
-            <footer className="bg-gray-900 text-white py-8">
-                <div className="container mx-auto px-4 text-center">
-                    <p className="text-gray-400">© 2024 Sistema de Gestión de Grupos Pequeños. Todos los derechos reservados.</p>
+            <footer className="bg-[#1e3a44] text-white py-10">
+                <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                    <div className="flex flex-col items-center space-y-4">
+                        <p className="text-slate-300 text-sm">
+                            © 2024 Sistema de Gestión de Grupos Pequeños. Todos los derechos reservados.
+                        </p>
+                    </div>
                 </div>
             </footer>
         </div>
     );
 };
 
-const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
-    <div className="p-6 bg-gray-50 rounded-xl hover:bg-white hover:shadow-lg transition-all border border-transparent hover:border-gray-100">
-        <div className="mb-4">{icon}</div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-gray-600">{description}</p>
+const FeatureCard = ({ title, description, icon }: { title: string, description: string, icon: React.ReactNode }) => (
+    <div className="group relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-transparent rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div className="relative bg-white p-8 lg:p-10 rounded-[24px] shadow-lg shadow-slate-900/5 hover:shadow-xl hover:shadow-slate-900/10 transition-all duration-300 border border-slate-100 h-full">
+            <div className="mb-6 w-16 h-16 bg-gradient-to-br from-[#2c7a8c]/10 to-[#3e8391]/5 rounded-2xl flex items-center justify-center">
+                {icon}
+            </div>
+            <h3 className="text-xl lg:text-2xl font-bold text-slate-900 mb-4 tracking-tight">{title}</h3>
+            <p className="text-slate-600 leading-relaxed">{description}</p>
+        </div>
     </div>
 );
 

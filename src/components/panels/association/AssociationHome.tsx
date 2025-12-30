@@ -26,19 +26,19 @@ const AssociationHome: React.FC = () => {
 
             {/* Association Metrics Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-500">
-                    <h3 className="text-gray-500 text-sm font-medium uppercase">Membresía Total</h3>
-                    <p className="text-3xl font-bold text-gray-800 mt-2">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Membresía Total</h3>
+                    <p className="text-4xl font-bold text-[#3e8391] mt-2">
                         {association?.membershipCount?.toLocaleString() || 0}
                     </p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-green-500">
-                    <h3 className="text-gray-500 text-sm font-medium uppercase">GPs Activos</h3>
-                    <p className="text-3xl font-bold text-gray-800 mt-2">{activeGPs}</p>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">GPs Activos</h3>
+                    <p className="text-4xl font-bold text-[#3e8391] mt-2">{activeGPs}</p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-purple-500">
-                    <h3 className="text-gray-500 text-sm font-medium uppercase">Bautismos (Año)</h3>
-                    <p className="text-3xl font-bold text-gray-800 mt-2">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Bautismos (Año)</h3>
+                    <p className="text-4xl font-bold text-[#3e8391] mt-2">
                         {association?.config?.annualBaptismGoal?.toLocaleString() || 0}
                     </p>
                 </div>
@@ -59,9 +59,9 @@ const AssociationHome: React.FC = () => {
 const MenuButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-md hover:shadow-xl hover:bg-blue-50 transition-all duration-200 border border-transparent hover:border-blue-100 group"
+        className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm hover:shadow-xl hover:bg-[#3e839105] transition-all duration-300 border border-gray-100 hover:border-[#3e839140] group"
     >
-        <div className="text-primary mb-4 p-4 bg-blue-50 rounded-full group-hover:bg-white transition-colors">{icon}</div>
+        <div className="text-[#3e8391] mb-4 p-5 bg-[#3e839110] rounded-2xl group-hover:scale-110 transition-transform">{icon}</div>
         <span className="font-bold text-lg text-gray-700">{label}</span>
     </button>
 );

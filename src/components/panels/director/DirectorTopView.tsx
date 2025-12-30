@@ -14,21 +14,27 @@ const DirectorTopView: React.FC = () => {
             const churchGps = mockBackend.getGPs().filter(g => g.churchId === church.id);
             const allPairs = mockBackend.getMissionaryPairs().filter(p => churchGps.some(g => g.id === p.gpId));
             const allMembers = mockBackend.getMembers();
+            const allReports = mockBackend.getReports();
 
             // 1. Top Pairs (by studies given)
             const pairsWithData = allPairs.map(pair => {
                 const m1 = allMembers.find(m => m.id === pair.member1Id);
                 const m2 = allMembers.find(m => m.id === pair.member2Id);
                 const names = `${m1?.firstName} ${m1?.lastName} & ${m2?.firstName} ${m2?.lastName}`;
-                return { pair, names, studies: pair.studiesGiven };
+
+                // Calculate total studies from weekly reports
+                const pairReports = allReports.filter(r => r.missionaryPairsStats.some((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id));
+                const totalStudies = pairReports.reduce((sum, r) => {
+                    const pairStats = r.missionaryPairsStats.find((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id);
+                    return sum + (pairStats?.studiesGiven || 0);
+                }, 0);
+
+                return { pair, names, studies: totalStudies };
             });
 
             setTopPairs(pairsWithData.sort((a, b) => b.studies - a.studies).slice(0, 5));
 
             // 2. Top GPs (Score based on attendance, friends, studies)
-            // We need to aggregate reports for this.
-            const allReports = mockBackend.getReports();
-
             const gpsWithScore = churchGps.map(gp => {
                 const gpReports = allReports.filter(r => r.gpId === gp.id);
 

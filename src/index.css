@@ -1,16 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap');
+
 :root {
-  --primary-color: #0250f7;
-  --primary-hover: #023eb5;
-  --secondary-color: #f3f4f6;
+  --primary-color: #3e8391;
+  --primary-hover: #336d7a;
+  --secondary-color: #f8fafc;
   --text-color: #1f2937;
-  --text-light: #6b7280;
-  --background-color: #ffffff;
+  --text-light: #64748b;
+  --background-color: #f1f5f9;
   --card-background: #ffffff;
-  --border-color: #e5e7eb;
+  --border-color: #e2e8f0;
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family: 'EB Garamond', serif;
 }
 
 * {

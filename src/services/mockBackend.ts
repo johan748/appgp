@@ -1,4 +1,4 @@
-import { User, SmallGroup, Member, Church, District, Zone, Association, WeeklyReport, MissionaryPair, Role } from '../types';
+import { User, SmallGroup, Member, Church, District, Zone, Association, WeeklyReport, MissionaryPair, Role, Union } from '../types';
 
 const STORAGE_KEYS = {
     USERS: 'app_users',
@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
     DISTRICTS: 'app_districts',
     ZONES: 'app_zones',
     ASSOCIATION: 'app_association',
+    UNIONS: 'app_unions',
     REPORTS: 'app_reports',
     PAIRS: 'app_pairs',
 };
@@ -27,7 +28,7 @@ class MockBackendService {
     }
 
     // Helper to save data
-    private save(key: string, data: any[]) {
+    public save(key: string, data: any[]) {
         localStorage.setItem(key, JSON.stringify(data));
     }
 
@@ -40,19 +41,37 @@ class MockBackendService {
 
     // Initialization / Seeding
     initialize() {
-        if (!localStorage.getItem(STORAGE_KEYS.ASSOCIATION)) {
+        if (!localStorage.getItem(STORAGE_KEYS.UNIONS) || !localStorage.getItem(STORAGE_KEYS.REPORTS)) {
             console.log('Seeding initial data...');
             this.seedData();
+        } else {
+            // Update admin password if needed
+            const users = this.get<User>(STORAGE_KEYS.USERS);
+            const adminUser = users.find(u => u.username === 'admin');
+            if (adminUser && adminUser.password !== '1234asdf') {
+                adminUser.password = '1234asdf';
+                this.save(STORAGE_KEYS.USERS, users);
+                console.log('Admin password updated to 1234asdf');
+            }
         }
     }
 
     seedData() {
+        // 0. Union (NEW ROOT)
+        const union: Union = {
+            id: 'union-1',
+            name: 'Unión Example',
+            evangelismDepartmentHead: 'Pr. Departamental de Evangelismo',
+            config: { username: 'admin_union', password: 'password' }
+        };
+        this.save(STORAGE_KEYS.UNIONS, [union]);
+
         // 1. Association
         const association: Association = {
             id: 'assoc-1',
             name: 'Asociación Ejemplo',
             departmentHead: 'Pr. Director MP',
-            unionName: 'Unión Ejemplo',
+            unionId: union.id,
             membershipCount: 5000,
             config: { username: 'admin_assoc', password: 'password' }
         };
@@ -111,7 +130,7 @@ class MockBackendService {
 
         // 6. Users & Members
         const users: User[] = [
-            { id: 'u-admin', username: 'admin', password: 'password', role: 'ADMIN', name: 'Administrador' },
+            { id: 'u-admin', username: 'admin', password: '1234asdf', role: 'ADMIN', name: 'Administrador' },
             { id: 'u-assoc', username: 'asociacion', password: 'password', role: 'ASOCIACION', relatedEntityId: association.id, name: 'Pr. Departamental' },
             { id: 'u-zone', username: 'zona', password: 'password', role: 'DIRECTOR_ZONA', relatedEntityId: zone.id, name: 'Dir. Zona' },
             { id: 'u-pastor', username: 'pastor', password: 'password', role: 'PASTOR', relatedEntityId: district.id, name: 'Pr. Juan Pérez' },
@@ -135,6 +154,64 @@ class MockBackendService {
             }
         ];
         this.save(STORAGE_KEYS.MEMBERS, members);
+
+        // 7. Reports
+        const reports: WeeklyReport[] = [
+            {
+                id: 'report-1',
+                gpId: gp.id,
+                date: '2024-12-01',
+                attendance: [
+                    { memberId: 'leader-1', present: true, participated: true, studiesGiven: true, guests: 0 },
+                    { memberId: 'sec-1', present: true, participated: false, studiesGiven: false, guests: 1 },
+                    { memberId: 'mem-1', present: false, participated: false, studiesGiven: false, guests: 0 }
+                ],
+                missionaryPairsStats: [
+                    { pairId: 'pair-1', studiesGiven: 5 }
+                ],
+                baptisms: 2,
+                summary: {
+                    totalAttendance: 2,
+                    totalStudies: 5,
+                    totalGuests: 1,
+                    baptisms: 2
+                }
+            },
+            {
+                id: 'report-2',
+                gpId: gp.id,
+                date: '2024-11-24',
+                attendance: [
+                    { memberId: 'leader-1', present: true, participated: true, studiesGiven: true, guests: 0 },
+                    { memberId: 'sec-1', present: true, participated: true, studiesGiven: false, guests: 0 },
+                    { memberId: 'mem-1', present: true, participated: false, studiesGiven: false, guests: 2 }
+                ],
+                missionaryPairsStats: [
+                    { pairId: 'pair-1', studiesGiven: 3 }
+                ],
+                baptisms: 1,
+                summary: {
+                    totalAttendance: 3,
+                    totalStudies: 3,
+                    totalGuests: 2,
+                    baptisms: 1
+                }
+            }
+        ];
+        this.save(STORAGE_KEYS.REPORTS, reports);
+
+        // 8. Missionary Pairs
+        const pairs: MissionaryPair[] = [
+            {
+                id: 'pair-1',
+                gpId: gp.id,
+                member1Id: 'leader-1',
+                member2Id: 'sec-1',
+                studiesGiven: 8, // Sum from reports
+                createdAt: '2024-01-01T00:00:00.000Z'
+            }
+        ];
+        this.save(STORAGE_KEYS.PAIRS, pairs);
     }
 
     // --- PUBLIC API ---
@@ -143,7 +220,25 @@ class MockBackendService {
     authenticate(username: string, password: string): User | null {
         const users = this.get<User>(STORAGE_KEYS.USERS);
 
-        // Check ALL association configs
+        // 1. Check UNION config
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        const matchingUnion = unions.find(u => u.config?.username === username && u.config?.password === password);
+
+        if (matchingUnion) {
+            const existing = users.find(u => u.role === 'UNION' && u.relatedEntityId === matchingUnion.id);
+            if (existing) return existing;
+
+            return {
+                id: 'temp-union-' + matchingUnion.id,
+                username: matchingUnion.config?.username || 'union',
+                password: '',
+                role: 'UNION',
+                relatedEntityId: matchingUnion.id,
+                name: matchingUnion.evangelismDepartmentHead || matchingUnion.name
+            };
+        }
+
+        // 2. Check ASSOCIATION config
         const assocs = this.get<Association>(STORAGE_KEYS.ASSOCIATION);
         const matchingAssoc = assocs.find(a => a.config?.username === username && a.config?.password === password);
 
@@ -171,7 +266,6 @@ class MockBackendService {
     // Generic Getters
     getUsers() { return this.get<User>(STORAGE_KEYS.USERS); }
     getGPs() { return this.get<SmallGroup>(STORAGE_KEYS.GPS); }
-    getMembers() { return this.get<Member>(STORAGE_KEYS.MEMBERS); }
     getChurches() { return this.get<Church>(STORAGE_KEYS.CHURCHES); }
     getDistricts() { return this.get<District>(STORAGE_KEYS.DISTRICTS); }
     getZones() { return this.get<Zone>(STORAGE_KEYS.ZONES); }
@@ -192,6 +286,32 @@ class MockBackendService {
 
     getGPById(id: string) {
         return this.getGPs().find(g => g.id === id);
+    }
+
+    // Union Management
+    getUnions() { return this.get<Union>(STORAGE_KEYS.UNIONS); }
+    getUnionById(id: string) { return this.getOne<Union>(STORAGE_KEYS.UNIONS, id); }
+
+    addUnion(union: Union) {
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        unions.push(union);
+        this.save(STORAGE_KEYS.UNIONS, unions);
+        return union;
+    }
+
+    updateUnion(union: Union) {
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        const index = unions.findIndex(u => u.id === union.id);
+        if (index !== -1) {
+            unions[index] = union;
+            this.save(STORAGE_KEYS.UNIONS, unions);
+        }
+    }
+
+    deleteUnion(id: string) {
+        let unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        unions = unions.filter(u => u.id !== id);
+        this.save(STORAGE_KEYS.UNIONS, unions);
     }
 
     // Association Getters
@@ -299,8 +419,32 @@ class MockBackendService {
         }
     }
 
+    getMembers() {
+        const members = this.get<Member>(STORAGE_KEYS.MEMBERS);
+        // Self-healing: Fix members without IDs
+        let changed = false;
+        const fixedMembers = members.map(m => {
+            if (!m.id) {
+                m.id = 'mem-' + Math.random().toString(36).substr(2, 9);
+                changed = true;
+            }
+            return m;
+        });
+
+        if (changed) {
+            this.save(STORAGE_KEYS.MEMBERS, fixedMembers);
+        }
+        return fixedMembers;
+    }
+
     addMember(member: any) {
         const members = this.get<any>(STORAGE_KEYS.MEMBERS);
+        // Prevent simple duplicates by cedula
+        if (member.cedula && members.some(m => m.cedula === member.cedula)) {
+            // Already exists, maybe update? Or just ignore to prevent duplicates
+            console.warn('Member with this cedula already exists');
+            return;
+        }
         members.push(member);
         this.save(STORAGE_KEYS.MEMBERS, members);
     }
@@ -316,6 +460,21 @@ class MockBackendService {
 
     getReports() {
         return this.get<any>(STORAGE_KEYS.REPORTS);
+    }
+
+    updateReport(report: any) {
+        const reports = this.get<any>(STORAGE_KEYS.REPORTS);
+        const index = reports.findIndex(r => r.id === report.id);
+        if (index !== -1) {
+            reports[index] = report;
+            this.save(STORAGE_KEYS.REPORTS, reports);
+        }
+    }
+
+    deleteReport(id: string) {
+        let reports = this.get<any>(STORAGE_KEYS.REPORTS);
+        reports = reports.filter(r => r.id !== id);
+        this.save(STORAGE_KEYS.REPORTS, reports);
     }
 
     cleanupDuplicates() {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { mockBackend } from '../../../services/mockBackend';
-import { Association } from '../../../types';
+import { Association, Union } from '../../../types';
 import { Building, Plus, User, Save, Trash2, Edit, X } from 'lucide-react';
 
 const AdminAssociationsView: React.FC = () => {
@@ -8,14 +8,17 @@ const AdminAssociationsView: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        unionName: '',
+        unionId: '',
         departmentHead: '',
         username: '',
         password: ''
     });
 
+    const [unions, setUnions] = useState<Union[]>([]);
+
     useEffect(() => {
         loadData();
+        setUnions(mockBackend.getUnions());
     }, []);
 
     const loadData = () => {
@@ -32,7 +35,7 @@ const AdminAssociationsView: React.FC = () => {
     const handleCreate = () => {
         setFormData({
             name: '',
-            unionName: '',
+            unionId: unions[0]?.id || '',
             departmentHead: '',
             username: '',
             password: ''
@@ -47,7 +50,7 @@ const AdminAssociationsView: React.FC = () => {
         const newAssoc: Association = {
             id: 'assoc-' + Math.random().toString(36).substr(2, 9),
             name: formData.name,
-            unionName: formData.unionName,
+            unionId: formData.unionId,
             departmentHead: formData.departmentHead,
             membershipCount: 0,
             config: {
@@ -57,8 +60,7 @@ const AdminAssociationsView: React.FC = () => {
         };
 
         // 2. Save Assoc (Push to array)
-        const updatedList = [...associations, newAssoc];
-        localStorage.setItem('app_association', JSON.stringify(updatedList));
+        mockBackend.save('app_association', [...associations, newAssoc]);
 
         // 3. Create Assoc User
         if (formData.username && formData.password) {
@@ -92,7 +94,7 @@ const AdminAssociationsView: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">Gestión de Asociaciones</h2>
-                <button onClick={handleCreate} className="btn btn-primary bg-primary text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                <button onClick={handleCreate} className="btn btn-primary flex items-center">
                     <Plus size={20} className="mr-2" />
                     Nueva Asociación
                 </button>
@@ -112,7 +114,9 @@ const AdminAssociationsView: React.FC = () => {
                         {associations.map((assoc) => (
                             <tr key={assoc.id}>
                                 <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{assoc.name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{assoc.unionName}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                                    {unions.find(u => u.id === assoc.unionId)?.name || 'Desconocida'}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-gray-500">{assoc.departmentHead}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button onClick={() => handleDelete(assoc.id)} className="text-red-600 hover:text-red-900 ml-4"><Trash2 size={18} /></button>
@@ -137,8 +141,18 @@ const AdminAssociationsView: React.FC = () => {
                                 <input required type="text" className="w-full border rounded p-2" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Nombre Unión</label>
-                                <input required type="text" className="w-full border rounded p-2" value={formData.unionName} onChange={e => setFormData({ ...formData, unionName: e.target.value })} />
+                                <label className="block text-sm font-medium text-gray-700">Unión</label>
+                                <select
+                                    required
+                                    className="w-full border rounded p-2"
+                                    value={formData.unionId}
+                                    onChange={e => setFormData({ ...formData, unionId: e.target.value })}
+                                >
+                                    <option value="">Seleccionar Unión...</option>
+                                    {unions.map(u => (
+                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Nombre Director Departamental</label>
@@ -158,7 +172,7 @@ const AdminAssociationsView: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex justify-end pt-4">
-                                <button type="submit" className="bg-primary text-white px-6 py-2 rounded shadow hover:bg-blue-700">Crear Asociación</button>
+                                <button type="submit" className="btn btn-primary">Crear Asociación</button>
                             </div>
                         </form>
                     </div>

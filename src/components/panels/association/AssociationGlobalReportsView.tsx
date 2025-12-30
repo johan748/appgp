@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
-import { Association, Zone } from '../../../types';
-import { BarChart, Users, BookOpen, Activity } from 'lucide-react';
+import { Association, Zone, District, Church, SmallGroup } from '../../../types';
+import { BarChart, Users, BookOpen, Activity, ChevronDown, ChevronRight } from 'lucide-react';
 
 const AssociationGlobalReportsView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
@@ -22,6 +22,9 @@ const AssociationGlobalReportsView: React.FC = () => {
 
     // Breakdown by Zone
     const [zoneStats, setZoneStats] = useState<any[]>([]);
+    const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
+    const [expandedDistricts, setExpandedDistricts] = useState<Set<string>>(new Set());
+    const [expandedChurches, setExpandedChurches] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (association) {
@@ -76,29 +79,225 @@ const AssociationGlobalReportsView: React.FC = () => {
                     name: zone.name,
                     attendance: zReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
                     studies: zReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
-                    guests: zReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0)
+                    guests: zReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
+                    baptisms: zReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
                 };
             });
             setZoneStats(statsByZone);
         }
     }, [association, filters]);
 
+    const toggleZone = (zoneId: string) => {
+        const newExpanded = new Set(expandedZones);
+        if (newExpanded.has(zoneId)) {
+            newExpanded.delete(zoneId);
+        } else {
+            newExpanded.add(zoneId);
+        }
+        setExpandedZones(newExpanded);
+    };
+
+    const toggleDistrict = (districtId: string) => {
+        const newExpanded = new Set(expandedDistricts);
+        if (newExpanded.has(districtId)) {
+            newExpanded.delete(districtId);
+        } else {
+            newExpanded.add(districtId);
+        }
+        setExpandedDistricts(newExpanded);
+    };
+
+    const toggleChurch = (churchId: string) => {
+        const newExpanded = new Set(expandedChurches);
+        if (newExpanded.has(churchId)) {
+            newExpanded.delete(churchId);
+        } else {
+            newExpanded.add(churchId);
+        }
+        setExpandedChurches(newExpanded);
+    };
+
     const months = [
-        { value: '01', label: 'Enero' },
-        { value: '02', label: 'Febrero' },
-        { value: '03', label: 'Marzo' },
-        { value: '04', label: 'Abril' },
-        { value: '05', label: 'Mayo' },
-        { value: '06', label: 'Junio' },
-        { value: '07', label: 'Julio' },
-        { value: '08', label: 'Agosto' },
-        { value: '09', label: 'Septiembre' },
-        { value: '10', label: 'Octubre' },
-        { value: '11', label: 'Noviembre' },
-        { value: '12', label: 'Diciembre' }
+        { value: '01', label: 'Enero' }, { value: '02', label: 'Febrero' },
+        { value: '03', label: 'Marzo' }, { value: '04', label: 'Abril' },
+        { value: '05', label: 'Mayo' }, { value: '06', label: 'Junio' },
+        { value: '07', label: 'Julio' }, { value: '08', label: 'Agosto' },
+        { value: '09', label: 'Septiembre' }, { value: '10', label: 'Octubre' },
+        { value: '11', label: 'Noviembre' }, { value: '12', label: 'Diciembre' }
     ];
 
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
+
+    const renderHierarchy = () => {
+        const allDistricts = mockBackend.getDistricts();
+        const allChurches = mockBackend.getChurches();
+        const allGPs = mockBackend.getGPs();
+        const allReports = mockBackend.getReports();
+
+        // Build date range
+        const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
+        const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
+        endDate.setMonth(endDate.getMonth() + 1);
+
+        return zones.map(zone => {
+            const zoneDistricts = allDistricts.filter(d => d.zoneId === zone.id);
+            const isZoneExpanded = expandedZones.has(zone.id);
+
+            return (
+                <div key={zone.id} className="border-b border-gray-200">
+                    {/* Zone Row */}
+                    <div
+                        className="flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer bg-blue-50"
+                        onClick={() => toggleZone(zone.id)}
+                    >
+                        <div className="flex items-center space-x-3">
+                            {isZoneExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                            <div>
+                                <h4 className="text-lg font-semibold text-gray-900">Zona: {zone.name}</h4>
+                                <p className="text-sm text-gray-600">{zoneDistricts.length} Distritos</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="grid grid-cols-4 gap-4 text-sm">
+                                <span>Asistencia: {zoneStats.find(z => z.id === zone.id)?.attendance || 0}</span>
+                                <span>Estudios: {zoneStats.find(z => z.id === zone.id)?.studies || 0}</span>
+                                <span>Visitas: {zoneStats.find(z => z.id === zone.id)?.guests || 0}</span>
+                                <span>Bautismos: {zoneStats.find(z => z.id === zone.id)?.baptisms || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Districts */}
+                    {isZoneExpanded && zoneDistricts.map(district => {
+                        const districtChurches = allChurches.filter(c => c.districtId === district.id);
+                        const isDistrictExpanded = expandedDistricts.has(district.id);
+
+                        // Calculate district stats
+                        const districtGPs = allGPs.filter(g => districtChurches.some(c => c.id === g.churchId));
+                        const districtReports = allReports.filter(r => {
+                            if (!districtGPs.some(g => g.id === r.gpId)) return false;
+                            const reportDate = new Date(r.date);
+                            return reportDate >= startDate && reportDate < endDate;
+                        });
+                        const districtStats = {
+                            attendance: districtReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
+                            studies: districtReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
+                            guests: districtReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
+                            baptisms: districtReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
+                        };
+
+                        return (
+                            <div key={district.id} className="ml-6 border-l-2 border-blue-200">
+                                {/* District Row */}
+                                <div
+                                    className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer bg-green-50"
+                                    onClick={() => toggleDistrict(district.id)}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        {isDistrictExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                        <div>
+                                            <h5 className="font-medium text-gray-900">Distrito: {district.name}</h5>
+                                            <p className="text-xs text-gray-600">{districtChurches.length} Iglesias</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="grid grid-cols-4 gap-4 text-xs">
+                                            <span>Asist: {districtStats.attendance}</span>
+                                            <span>Est: {districtStats.studies}</span>
+                                            <span>Vis: {districtStats.guests}</span>
+                                            <span>Baut: {districtStats.baptisms}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Churches */}
+                                {isDistrictExpanded && districtChurches.map(church => {
+                                    const churchGPs = allGPs.filter(g => g.churchId === church.id);
+                                    const isChurchExpanded = expandedChurches.has(church.id);
+
+                                    // Calculate church stats
+                                    const churchReports = allReports.filter(r => {
+                                        if (!churchGPs.some(g => g.id === r.gpId)) return false;
+                                        const reportDate = new Date(r.date);
+                                        return reportDate >= startDate && reportDate < endDate;
+                                    });
+                                    const churchStats = {
+                                        attendance: churchReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
+                                        studies: churchReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
+                                        guests: churchReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
+                                        baptisms: churchReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
+                                    };
+
+                                    return (
+                                        <div key={church.id} className="ml-6 border-l-2 border-green-200">
+                                            {/* Church Row */}
+                                            <div
+                                                className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer bg-yellow-50"
+                                                onClick={() => toggleChurch(church.id)}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    {isChurchExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                    <div>
+                                                        <h6 className="font-medium text-gray-900">Iglesia: {church.name}</h6>
+                                                        <p className="text-xs text-gray-600">{churchGPs.length} Grupos Pequeños</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="grid grid-cols-4 gap-4 text-xs">
+                                                        <span>Asist: {churchStats.attendance}</span>
+                                                        <span>Est: {churchStats.studies}</span>
+                                                        <span>Vis: {churchStats.guests}</span>
+                                                        <span>Baut: {churchStats.baptisms}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Small Groups */}
+                                            {isChurchExpanded && churchGPs.map(gp => {
+                                                const gpReports = allReports.filter(r => {
+                                                    if (r.gpId !== gp.id) return false;
+                                                    const reportDate = new Date(r.date);
+                                                    return reportDate >= startDate && reportDate < endDate;
+                                                });
+                                                const gpStats = {
+                                                    attendance: gpReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
+                                                    studies: gpReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
+                                                    guests: gpReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
+                                                    baptisms: gpReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
+                                                };
+
+                                                return (
+                                                    <div key={gp.id} className="ml-6 border-l-2 border-yellow-200">
+                                                        <div className="flex items-center justify-between p-2 hover:bg-gray-50 bg-gray-50">
+                                                            <div className="flex items-center space-x-3">
+                                                                <div className="w-4"></div>
+                                                                <div>
+                                                                    <p className="font-medium text-gray-900">GP: {gp.name}</p>
+                                                                    <p className="text-xs text-gray-600">Líder: {mockBackend.getMembersByGP(gp.id).find(m => m.id === gp.leaderId)?.firstName} {mockBackend.getMembersByGP(gp.id).find(m => m.id === gp.leaderId)?.lastName}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="grid grid-cols-4 gap-4 text-xs">
+                                                                    <span>Asist: {gpStats.attendance}</span>
+                                                                    <span>Est: {gpStats.studies}</span>
+                                                                    <span>Vis: {gpStats.guests}</span>
+                                                                    <span>Baut: {gpStats.baptisms}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        });
+    };
 
     return (
         <div className="space-y-8">
@@ -149,75 +348,54 @@ const AssociationGlobalReportsView: React.FC = () => {
             </div>
 
             {/* Key Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-lg shadow border-b-4 border-blue-500">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Asistencia Total</h3>
-                        <Users className="text-blue-500" size={24} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Asistencia Total</p>
+                            <p className="text-3xl font-bold text-gray-900">{globalStats.totalAttendance}</p>
+                        </div>
+                        <Users className="text-blue-500" size={32} />
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{globalStats.totalAttendance}</p>
-                    <p className="text-xs text-green-500 mt-1 flex items-center">
-                        <Activity size={12} className="mr-1" /> Actividad reciente
-                    </p>
                 </div>
-
-                <div className="bg-white p-6 rounded-lg shadow border-b-4 border-green-500">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Estudios Bíblicos</h3>
-                        <BookOpen className="text-green-500" size={24} />
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Estudios Bíblicos</p>
+                            <p className="text-3xl font-bold text-gray-900">{globalStats.totalStudies}</p>
+                        </div>
+                        <BookOpen className="text-green-500" size={32} />
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{globalStats.totalStudies}</p>
                 </div>
-
-                <div className="bg-white p-6 rounded-lg shadow border-b-4 border-purple-500">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Amigos/Visitas</h3>
-                        <Users className="text-purple-500" size={24} />
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Visitas</p>
+                            <p className="text-3xl font-bold text-gray-900">{globalStats.totalGuests}</p>
+                        </div>
+                        <Activity className="text-purple-500" size={32} />
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{globalStats.totalGuests}</p>
                 </div>
-
-                <div className="bg-white p-6 rounded-lg shadow border-b-4 border-red-500">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Bautismos</h3>
-                        <Activity className="text-red-500" size={24} />
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-orange-500">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Bautismos</p>
+                            <p className="text-3xl font-bold text-gray-900">{globalStats.totalBaptisms}</p>
+                        </div>
+                        <BarChart className="text-orange-500" size={32} />
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{globalStats.totalBaptisms}</p>
-                    <p className="text-xs text-gray-400 mt-1">Acumulado anual</p>
                 </div>
             </div>
 
-            {/* Zone Comparison Table */}
+            {/* Hierarchical Structure */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Desempeño por Zonas</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Estructura Jerárquica de Reportes</h3>
+                    <p className="text-sm text-gray-600">Haz clic en los nombres para expandir/colapsar niveles</p>
                 </div>
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zona</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Asistencia</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Estudios</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Visitas</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {zoneStats.map((z) => (
-                            <tr key={z.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{z.name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{z.attendance}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{z.studies}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{z.guests}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        Activo
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="divide-y divide-gray-200">
+                    {renderHierarchy()}
+                </div>
             </div>
         </div>
     );

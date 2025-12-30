@@ -78,7 +78,7 @@ const DirectorReportsView: React.FC = () => {
             {currentReport ? (
                 <div className="space-y-6 animate-fade-in">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-blue-500">
                             <p className="text-3xl font-bold text-gray-800">{currentReport.summary.totalAttendance}</p>
                             <p className="text-sm text-gray-500">Asistentes</p>
@@ -90,6 +90,10 @@ const DirectorReportsView: React.FC = () => {
                         <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-purple-500">
                             <p className="text-3xl font-bold text-gray-800">{currentReport.summary.totalGuests}</p>
                             <p className="text-sm text-gray-500">Amigos Invitados</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg shadow text-center border-t-4 border-orange-500">
+                            <p className="text-3xl font-bold text-gray-800">{currentReport.summary.baptisms || 0}</p>
+                            <p className="text-sm text-gray-500">Bautismos</p>
                         </div>
                     </div>
 

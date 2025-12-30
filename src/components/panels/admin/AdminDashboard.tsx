@@ -1,16 +1,18 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { Database, Shield, Settings, Users } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
     const { logout } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-gray-100 p-8">
             <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">Panel de Administrador</h1>
-                    <button onClick={logout} className="text-red-600 hover:text-red-800 font-medium">Cerrar Sesión</button>
+                    <button onClick={() => { logout(); navigate('/login'); }} className="text-red-600 hover:text-red-800 font-medium">Cerrar Sesión</button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

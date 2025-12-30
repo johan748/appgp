@@ -10,11 +10,12 @@ const LoginPage: React.FC = () => {
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
-        if (login(username, password)) {
+        const success = await login(username, password);
+        if (success) {
             // Redirect based on role
             const user = JSON.parse(localStorage.getItem('current_user') || '{}');
             switch (user.role) {
@@ -23,6 +24,7 @@ const LoginPage: React.FC = () => {
                 case 'PASTOR': navigate('/pastor'); break;
                 case 'DIRECTOR_ZONA': navigate('/zone'); break;
                 case 'ASOCIACION': navigate('/association'); break;
+                case 'UNION': navigate('/union'); break;
                 case 'ADMIN': navigate('/admin'); break;
                 default: navigate('/');
             }
@@ -32,47 +34,57 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full space-y-8 card">
+        <div
+            className="min-h-screen flex items-center justify-center px-4 bg-cover bg-center bg-no-repeat relative"
+            style={{ backgroundImage: 'url("/fondo_inicio_sesion.png")' }}
+        >
+            {/* Overlay for better readability */}
+            <div className="absolute inset-0 bg-black/40"></div>
+
+            {/* Welcome text on the blue/left side */}
+            <div className="absolute left-8 md:left-16 lg:left-24 top-1/2 -translate-y-1/2 z-0 hidden md:block">
+                <h2 className="text-white font-bold uppercase text-2xl lg:text-3xl xl:text-4xl leading-tight max-w-md drop-shadow-2xl">
+                    BIENVENIDOS AL SISTEMA<br />
+                    DE GESTIÓN DE GRUPOS PEQUEÑOS.
+                    <br /><br />
+                    CONECTA, CRECE Y COMPARTE.
+                </h2>
+            </div>
+
+            <div className="max-w-md w-full space-y-8 p-10 bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl relative z-10 border border-white/20">
                 <div className="text-center">
-                    {/* Logo Placeholder */}
-                    <div className="mx-auto h-24 w-24 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                        <span className="text-3xl font-bold text-primary">GP</span>
-                    </div>
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                        Gestión de Grupos Pequeños
+                    <img src="/logo_gp_transparent.png" alt="Logo" className="mx-auto h-24 mb-6" />
+                    <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+                        AppGP
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm font-medium text-gray-500 uppercase tracking-widest">
                         Iglesia Adventista del Séptimo Día
                     </p>
-                    <button onClick={() => navigate('/')} className="mt-4 text-sm text-blue-500 hover:text-blue-700 underline">
-                        Volver al Inicio
-                    </button>
                 </div>
 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="rounded-md shadow-sm -space-y-px">
+                    <div className="space-y-4">
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <UserIcon className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
                                 type="text"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                                className="block w-full px-4 py-3 pl-12 border border-gray-200 rounded-2xl bg-white/50 focus:bg-white focus:ring-2 focus:ring-[#3e8391] focus:border-transparent outline-none transition-all placeholder-gray-400 text-gray-900"
                                 placeholder="Usuario"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                             />
                         </div>
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <Lock className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
                                 type="password"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                                className="block w-full px-4 py-3 pl-12 border border-gray-200 rounded-2xl bg-white/50 focus:bg-white focus:ring-2 focus:ring-[#3e8391] focus:border-transparent outline-none transition-all placeholder-gray-400 text-gray-900"
                                 placeholder="Contraseña"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -81,7 +93,7 @@ const LoginPage: React.FC = () => {
                     </div>
 
                     {error && (
-                        <div className="text-red-500 text-sm text-center">
+                        <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-xl text-center animate-shake">
                             {error}
                         </div>
                     )}
@@ -89,10 +101,19 @@ const LoginPage: React.FC = () => {
                     <div>
                         <button
                             type="submit"
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            style={{ backgroundColor: 'var(--primary-color)' }}
+                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-[#3e8391] hover:bg-[#336d7a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3e8391] transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#3e839140]"
                         >
                             Iniciar Sesión
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/')}
+                            className="text-xs font-bold text-gray-400 hover:text-[#3e8391] transition-colors uppercase tracking-widest"
+                        >
+                            Volver al Inicio
                         </button>
                     </div>
                 </form>

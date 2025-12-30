@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { District, Member, Church, SmallGroup } from '../../../types';
 import { Shield } from 'lucide-react';
 
 const PastorRolesView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
+    const { showToast } = useToast();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [gps, setGps] = useState<SmallGroup[]>([]);
@@ -44,7 +46,7 @@ const PastorRolesView: React.FC = () => {
 
             // Refresh local state
             setMembers(prev => prev.map(m => m.id === memberId ? updatedMember : m));
-            alert(`Rol de ${member.firstName} actualizado a ${newRole}`);
+            showToast(`Rol de ${member.firstName} actualizado a ${newRole}`, 'info');
         }
     };
 

@@ -25,9 +25,9 @@ const DirectorHome: React.FC = () => {
 const MenuButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-md hover:shadow-xl hover:bg-blue-50 transition-all duration-200 border border-transparent hover:border-blue-100 group"
+        className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm hover:shadow-xl hover:bg-[#3e839105] transition-all duration-300 border border-gray-100 hover:border-[#3e839140] group"
     >
-        <div className="text-primary mb-4 p-4 bg-blue-50 rounded-full group-hover:bg-white transition-colors">{icon}</div>
+        <div className="text-[#3e8391] mb-4 p-5 bg-[#3e839110] rounded-2xl group-hover:scale-110 transition-transform">{icon}</div>
         <span className="font-bold text-lg text-gray-700">{label}</span>
     </button>
 );

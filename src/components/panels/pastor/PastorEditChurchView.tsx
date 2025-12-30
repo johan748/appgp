@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { District, Church } from '../../../types';
 import { Save } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Save } from 'lucide-react';
 const PastorEditChurchView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [formData, setFormData] = useState<Church | null>(null);
@@ -34,7 +36,7 @@ const PastorEditChurchView: React.FC = () => {
             if (index !== -1) {
                 allChurches[index] = formData;
                 localStorage.setItem('app_churches', JSON.stringify(allChurches));
-                alert('Iglesia actualizada exitosamente');
+                showToast('Iglesia actualizada exitosamente', 'success');
                 navigate('/pastor/churches');
             }
         }

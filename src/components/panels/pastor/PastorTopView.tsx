@@ -18,6 +18,7 @@ const PastorTopView: React.FC = () => {
             const districtGps = mockBackend.getGPs().filter(g => districtChurchIds.includes(g.churchId));
             const allPairs = mockBackend.getMissionaryPairs().filter(p => districtGps.some(g => g.id === p.gpId));
             const allMembers = mockBackend.getMembers();
+            const allReports = mockBackend.getReports();
 
             // Helper to get church name
             const getChurchName = (gpId: string) => {
@@ -31,14 +32,20 @@ const PastorTopView: React.FC = () => {
                 const m1 = allMembers.find(m => m.id === pair.member1Id);
                 const m2 = allMembers.find(m => m.id === pair.member2Id);
                 const names = `${m1?.firstName} ${m1?.lastName} & ${m2?.firstName} ${m2?.lastName}`;
-                return { pair, names, studies: pair.studiesGiven, churchName: getChurchName(pair.gpId) };
+
+                // Calculate total studies from weekly reports
+                const pairReports = allReports.filter(r => r.missionaryPairsStats.some((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id));
+                const totalStudies = pairReports.reduce((sum, r) => {
+                    const pairStats = r.missionaryPairsStats.find((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id);
+                    return sum + (pairStats?.studiesGiven || 0);
+                }, 0);
+
+                return { pair, names, studies: totalStudies, churchName: getChurchName(pair.gpId) };
             });
 
             setTopPairs(pairsWithData.sort((a, b) => b.studies - a.studies).slice(0, 5));
 
             // 2. Top GPs (Score based on attendance, friends, studies)
-            const allReports = mockBackend.getReports();
-
             const gpsWithScore = districtGps.map(gp => {
                 const gpReports = allReports.filter(r => r.gpId === gp.id);
 

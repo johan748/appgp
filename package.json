@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "netlify": "netlify"
   },
   "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
     "lucide-react": "^0.556.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/node": "^25.0.3",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",

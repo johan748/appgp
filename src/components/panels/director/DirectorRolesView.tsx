@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { Church } from '../../../types';
 import { Save, Users } from 'lucide-react';
 
 const DirectorRolesView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
+    const { showToast } = useToast();
     const [rolesList, setRolesList] = useState<any[]>([]);
 
     const [formData, setFormData] = useState({
@@ -55,7 +57,7 @@ const DirectorRolesView: React.FC = () => {
         personnel.push(newPerson);
         localStorage.setItem('app_personnel', JSON.stringify(personnel));
 
-        alert('Persona registrada exitosamente');
+        showToast('Persona registrada exitosamente', 'success');
         setFormData({
             firstName: '', lastName: '', cedula: '', birthDate: '', phone: '', email: '',
             address: '', isBaptized: 'Sí', gender: 'M', role: 'LIDER'

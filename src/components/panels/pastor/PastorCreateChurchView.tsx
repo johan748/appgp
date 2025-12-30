@@ -3,10 +3,12 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { mockBackend } from '../../../services/mockBackend';
 import { District, Church, User } from '../../../types';
 import { Save } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 const PastorCreateChurchView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -46,7 +48,7 @@ const PastorCreateChurchView: React.FC = () => {
         users.push(newUser);
         localStorage.setItem('app_users', JSON.stringify(users));
 
-        alert('Iglesia creada exitosamente');
+        showToast('Iglesia creada exitosamente', 'success');
         navigate('/pastor/churches');
     };
 

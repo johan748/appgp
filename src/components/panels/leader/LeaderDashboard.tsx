@@ -87,7 +87,7 @@ const LeaderDashboard: React.FC = () => {
                     </div>
                     <div className="text-right">
                         <p className="font-medium text-gray-900">{getWelcomeMessage()}</p>
-                        <button onClick={logout} className="text-xs text-red-500 hover:text-red-700">Cerrar Sesión</button>
+                        <button onClick={() => { logout(); navigate('/login'); }} className="text-xs text-red-500 hover:text-red-700">Cerrar Sesión</button>
                     </div>
                 </div>
             </header>

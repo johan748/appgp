@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { District, SmallGroup, User, Church } from '../../../types';
 import { Save } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Save } from 'lucide-react';
 const PastorCreateGroupView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [personnel, setPersonnel] = useState<any[]>([]);
     const [churches, setChurches] = useState<Church[]>([]);
 
@@ -54,7 +56,7 @@ const PastorCreateGroupView: React.FC = () => {
         e.preventDefault();
 
         if (!formData.churchId) {
-            alert('Por favor seleccione una iglesia');
+            showToast('Por favor seleccione una iglesia', 'warning');
             return;
         }
 
@@ -103,7 +105,7 @@ const PastorCreateGroupView: React.FC = () => {
             mockBackend.addMember(newMember);
         }
 
-        alert('Grupo Pequeño creado exitosamente');
+        showToast('Grupo Pequeño creado exitosamente', 'success');
         navigate('/pastor/churches'); // Redirect to churches list or groups list
     };
 
@@ -200,7 +202,7 @@ const PastorCreateGroupView: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                    <button type="submit" className="btn btn-primary bg-primary text-white px-4 py-2 rounded shadow hover:bg-blue-700">
+                    <button type="submit" className="btn btn-primary">
                         <Save className="mr-2 inline" size={18} />
                         Crear Grupo
                     </button>

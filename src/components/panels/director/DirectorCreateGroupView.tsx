@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useToast } from '../../../context/ToastContext';
 import { mockBackend } from '../../../services/mockBackend';
 import { Church, SmallGroup, User } from '../../../types';
 import { Save } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Save } from 'lucide-react';
 const DirectorCreateGroupView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [personnel, setPersonnel] = useState<any[]>([]);
 
     const [formData, setFormData] = useState({
@@ -52,7 +54,7 @@ const DirectorCreateGroupView: React.FC = () => {
         e.preventDefault();
 
         if (!church) {
-            alert('Error: No se pudo identificar la iglesia. Por favor intenta nuevamente.');
+            showToast('Error: No se pudo identificar la iglesia. Por favor intenta nuevamente.', 'error');
             return;
         }
 
@@ -102,7 +104,7 @@ const DirectorCreateGroupView: React.FC = () => {
             mockBackend.addMember(newMember);
         }
 
-        alert('Grupo Pequeño creado exitosamente');
+        showToast('Grupo Pequeño creado exitosamente', 'success');
         navigate('/director/groups');
     };
 
