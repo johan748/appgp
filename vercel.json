@@ -14,10 +14,10 @@
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com https://vercel.live; script-src-elem 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://vercel.live; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:;"
-        },
+            {
+      "key": "Content-Security-Policy",
+      "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com https://vercel.live; script-src-elem 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://vercel.live; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; frame-src 'self' https://vercel.live;"
+            }
         {
           "key": "X-Frame-Options",
           "value": "DENY"
@@ -38,3 +38,4 @@
     "VITE_BACKEND_TYPE": "supabase"
   }
 }
+
