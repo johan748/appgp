@@ -2,7 +2,141 @@
 
 ## Descripción
 
-Este documento proporciona las instrucciones para configurar el backend de AppGP utilizando Node.js, Express y PostgreSQL con Neon.
+Este documento proporciona las instrucciones para configurar el backend de AppGP utilizando Node.js, Express y PostgreSQL con Supabase/Neon.
+
+## 📊 Estructuras de Datos de la Aplicación
+
+### 1. Reportes Semanales (`WeeklyReport`)
+
+**Ubicación:** `ReportsView.tsx`, `EditReportView.tsx`
+
+```typescript
+interface WeeklyReport {
+  id: string; // UUID único
+  gpId: string; // UUID del Grupo Pequeño
+  date: string; // YYYY-MM-DD
+  attendance: {
+    // Array de asistencia por miembro
+    memberId: string; // UUID del miembro
+    present: boolean; // ✓ presente
+    participated: boolean; // ✓ participó
+    studiesGiven: boolean; // ✓ dio estudios bíblicos
+    guests: number; // contador de invitados
+  }[];
+  missionaryPairsStats: {
+    // Estadísticas de parejas
+    pairId: string; // UUID de pareja
+    studiesGiven: number; // estudios dados
+  }[];
+  baptisms: number; // bautismos reportados
+  summary: {
+    // resumen calculado
+    totalAttendance: number;
+    totalStudies: number;
+    totalGuests: number;
+    baptisms?: number;
+  };
+}
+```
+
+### 2. Metas de Grupos Pequeños (`GPGoals`)
+
+**Ubicación:** `LeaderDashboard.tsx`
+
+```typescript
+interface GPGoals {
+  baptisms: { target: number; period: string }; // Bautismos (anual/semestral)
+  weeklyAttendanceMembers: { target: number; period: string }; // % asistencia miembros
+  weeklyAttendanceGp: { target: number; period: string }; // % asistencia GP
+  missionaryPairs: { target: number; period: string }; // Número de parejas
+  friends: { target: number; period: string }; // Número de amigos
+  bibleStudies: { target: number; period: string }; // Estudios bíblicos
+}
+```
+
+### 3. Desarrollo de Liderazgo (`LeadershipProgress`)
+
+**Ubicación:** `LeadershipView.tsx`
+
+```typescript
+interface LeadershipProgress {
+  liderEnFormacionDate?: string; // Fecha ascenso a líder en formación
+  secretarioDate?: string; // Fecha ascenso a secretario
+  liderGpDate?: string; // Fecha ascenso a líder GP
+}
+
+// Progreso: Miembro → Líder en Formación → Secretario → Líder GP
+```
+
+### 4. Seguimiento de Amigos (`FriendProgress`)
+
+**Ubicación:** `FriendsView.tsx`
+
+```typescript
+interface FriendProgress {
+  invitedDate?: string; // Fecha de invitación
+  regularAttenderDate?: string; // Fecha de asistente regular
+  studentDate?: string; // Fecha de estudiante
+  baptizedDate?: string; // Fecha de bautismo
+}
+
+// Progreso: Invitado → Asistente Regular → Estudiante → Bautizado
+```
+
+### 5. Reportes Globales por Iglesias
+
+**Ubicación:** `AssociationGlobalReportsView.tsx`
+
+```typescript
+// Jerarquía: Asociación → Zonas → Distritos → Iglesias → GPs → Reportes
+
+interface HierarchicalStats {
+  totalAttendance: number; // Suma total asistencia
+  totalStudies: number; // Suma total estudios
+  totalGuests: number; // Suma total visitas
+  totalBaptisms: number; // Suma total bautismos
+  // Estructura anidada por niveles organizacionales
+}
+```
+
+### 6. Sistema de Roles y Usuarios
+
+```typescript
+type Role =
+  | "ADMIN"
+  | "UNION"
+  | "ASOCIACION"
+  | "DIRECTOR_ZONA"
+  | "PASTOR"
+  | "DIRECTOR_MP"
+  | "LIDER_GP"
+  | "SECRETARIO"
+  | "LIDER_EN_FORMACION"
+  | "MIEMBRO";
+
+interface User {
+  id: string; // UUID de Supabase auth
+  username: string; // Nombre único
+  role: Role; // Rol asignado
+  relatedEntityId?: string; // Entidad que gestiona
+  name: string; // Nombre completo
+  email?: string; // Para auth Supabase
+  isActive?: boolean; // Estado usuario
+}
+```
+
+## Archivos por Funcionalidad
+
+| **Funcionalidad**  | **Archivo**                        | **Tipo de Datos**    |
+| ------------------ | ---------------------------------- | -------------------- |
+| Reportes Semanales | `ReportsView.tsx`                  | `WeeklyReport[]`     |
+| Editar Reportes    | `EditReportView.tsx`               | `WeeklyReport`       |
+| Asistencia         | `AttendanceView.tsx`               | `AttendanceRecord[]` |
+| Liderazgo          | `LeadershipView.tsx`               | `LeadershipProgress` |
+| Amigos             | `FriendsView.tsx`                  | `FriendProgress`     |
+| Metas GP           | `LeaderDashboard.tsx`              | `GPGoals`            |
+| Config GP          | `LeaderDashboard.tsx`              | `SmallGroup` config  |
+| Reportes Globales  | `AssociationGlobalReportsView.tsx` | `HierarchicalStats`  |
 
 ## Estructura del Backend
 
