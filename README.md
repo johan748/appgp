@@ -9,9 +9,9 @@ AppGP es un sistema de gestión integral para organizaciones religiosas que perm
 ### 🏗️ Arquitectura Moderna
 
 - **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Node.js + Express + PostgreSQL (Neon)
-- **Despliegue**: Netlify (Frontend) + Railway (Backend)
-- **Base de Datos**: PostgreSQL con Neon para alta disponibilidad
+- **Backend**: Node.js + Express + PostgreSQL (Supabase/Neon)
+- **Despliegue**: Netlify/Vercel (Frontend) + Railway (Backend)
+- **Base de Datos**: PostgreSQL con Supabase/Neon para alta disponibilidad
 
 ### 👥 Roles de Usuario
 
@@ -69,8 +69,10 @@ AppGP es un sistema de gestión integral para organizaciones religiosas que perm
 
 ### Despliegue
 
-- **Netlify**: Despliegue frontend
+- **Vercel**: Despliegue frontend (Recomendado)
+- **Netlify**: Despliegue frontend alternativo
 - **Railway**: Despliegue backend
+- **Supabase**: Base de datos PostgreSQL serverless
 - **GitHub**: Control de versiones
 
 ## Estructura del Proyecto

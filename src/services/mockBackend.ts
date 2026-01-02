@@ -419,6 +419,12 @@ class MockBackendService {
         }
     }
 
+    deleteUser(id: string) {
+        const users = this.get<User>(STORAGE_KEYS.USERS);
+        const filteredUsers = users.filter(u => u.id !== id);
+        this.save(STORAGE_KEYS.USERS, filteredUsers);
+    }
+
     getMembers() {
         const members = this.get<Member>(STORAGE_KEYS.MEMBERS);
         // Self-healing: Fix members without IDs

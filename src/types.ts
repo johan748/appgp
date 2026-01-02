@@ -3,10 +3,12 @@ export type Role = 'ADMIN' | 'UNION' | 'ASOCIACION' | 'DIRECTOR_ZONA' | 'PASTOR'
 export interface User {
     id: string;
     username: string;
-    password: string; // In a real app, this would be hashed.
+    password?: string; // Optional for Supabase - auth handled by Supabase
     role: Role;
     relatedEntityId?: string; // ID of the GP, Church, District, etc. they manage
     name: string; // Display name
+    email?: string; // For Supabase auth integration
+    isActive?: boolean; // For user status management
 }
 
 export interface Union {

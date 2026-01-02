@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { realBackend } from '../services/realBackend';
-import { mockBackend } from '../services/mockBackend';
+import { backend } from '../services';
 
 interface AuthContextType {
     user: User | null;
@@ -18,48 +17,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Initialize mock data
-        mockBackend.initialize();
-
-        // Check for existing session
-        const storedUser = localStorage.getItem('current_user');
-        const token = localStorage.getItem('auth_token');
-
-        if (storedUser && token) {
+        const initializeBackend = async () => {
             try {
-                setUser(JSON.parse(storedUser));
-                // For mock backend, just set as loaded since there's no token expiry
-                setIsLoading(false);
+                const currentBackend = await backend();
+                // Initialize if available
+                if (currentBackend.initialize) {
+                    currentBackend.initialize();
+                }
             } catch (error) {
-                console.error('Error parsing stored user:', error);
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('current_user');
-                setUser(null);
+                console.error('Error initializing backend:', error);
+            }
+
+            // Check for existing session
+            const storedUser = localStorage.getItem('current_user');
+            const token = localStorage.getItem('auth_token');
+
+            if (storedUser && token) {
+                try {
+                    setUser(JSON.parse(storedUser));
+                    setIsLoading(false);
+                } catch (error) {
+                    console.error('Error parsing stored user:', error);
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('current_user');
+                    setUser(null);
+                    setIsLoading(false);
+                }
+            } else {
                 setIsLoading(false);
             }
-        } else {
-            setIsLoading(false);
-        }
+        };
+
+        initializeBackend();
     }, []);
 
     const login = async (username: string, password: string): Promise<boolean> => {
         setIsLoading(true);
         try {
-            // Try mock backend first (since real backend is not implemented yet)
-            const mockUser = mockBackend.authenticate(username, password);
-            if (mockUser) {
-                setUser(mockUser);
-                localStorage.setItem('current_user', JSON.stringify(mockUser));
+            const currentBackend = await backend();
+            const authenticatedUser = await currentBackend.authenticate(username, password);
+
+            if (authenticatedUser) {
+                setUser(authenticatedUser);
+                localStorage.setItem('current_user', JSON.stringify(authenticatedUser));
                 return true;
             }
-            
-            // If mock backend fails, try real backend
-            const foundUser = await realBackend.authenticate(username, password);
-            if (foundUser) {
-                setUser(foundUser);
-                return true;
-            }
-            
+
             return false;
         } catch (error) {
             console.error('Login failed:', error);

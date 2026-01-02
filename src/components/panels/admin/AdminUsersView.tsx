@@ -1,15 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { backend } from '../../../services';
 import { User, Role } from '../../../types';
-import { Users, Search, RefreshCw } from 'lucide-react';
+import { Users, Search, RefreshCw, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 
 const AdminUsersView: React.FC = () => {
     const { showToast } = useToast();
-    const [users, setUsers] = useState<User[]>(mockBackend.getUsers());
+    const [users, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [formData, setFormData] = useState({
+        username: '',
+        password: '',
+        name: '',
+        role: 'LIDER_GP' as Role,
+        email: '',
+        isActive: true
+    });
 
-    const refresh = () => setUsers([...mockBackend.getUsers()]);
+    const loadUsers = async () => {
+        try {
+            setLoading(true);
+            const currentBackend = await backend();
+            const usersData = await currentBackend.getUsers();
+            setUsers(usersData);
+        } catch (error) {
+            console.error('Error loading users:', error);
+            showToast('Error al cargar usuarios', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadUsers();
+    }, []);
+
+    const refresh = () => loadUsers();
 
     const filteredUsers = users.filter(u =>
         u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -20,22 +49,114 @@ const AdminUsersView: React.FC = () => {
     const getRoleBadge = (role: Role) => {
         const colors: Record<string, string> = {
             'ADMIN': 'bg-red-100 text-red-800',
+            'UNION': 'bg-orange-100 text-orange-800',
             'ASOCIACION': 'bg-purple-100 text-purple-800',
             'DIRECTOR_ZONA': 'bg-blue-100 text-blue-800',
             'PASTOR': 'bg-indigo-100 text-indigo-800',
             'DIRECTOR_MP': 'bg-green-100 text-green-800',
-            'LIDER_GP': 'bg-yellow-100 text-yellow-800'
+            'LIDER_GP': 'bg-yellow-100 text-yellow-800',
+            'SECRETARIO': 'bg-teal-100 text-teal-800',
+            'LIDER_EN_FORMACION': 'bg-cyan-100 text-cyan-800',
+            'MIEMBRO': 'bg-gray-100 text-gray-800'
         };
         return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors[role] || 'bg-gray-100'}`}>{role}</span>;
     };
 
-    const handleResetPassword = (u: User) => {
+    const handleCreateUser = () => {
+        setEditingUser(null);
+        setFormData({
+            username: '',
+            password: '',
+            name: '',
+            role: 'LIDER_GP',
+            email: '',
+            isActive: true
+        });
+        setShowModal(true);
+    };
+
+    const handleEditUser = (user: User) => {
+        setEditingUser(user);
+        setFormData({
+            username: user.username,
+            password: '',
+            name: user.name,
+            role: user.role,
+            email: user.email || '',
+            isActive: user.isActive !== false
+        });
+        setShowModal(true);
+    };
+
+    const handleDeleteUser = async (user: User) => {
+        if (window.confirm(`¿Está seguro de que desea eliminar al usuario "${user.username}"?`)) {
+            try {
+                const currentBackend = await backend();
+                if ((currentBackend as any).deleteUser) {
+                    await (currentBackend as any).deleteUser(user.id);
+                    showToast('Usuario eliminado', 'success');
+                    refresh();
+                } else {
+                    showToast('Eliminar usuarios no está disponible en este backend', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showToast('Error al eliminar usuario', 'error');
+            }
+        }
+    };
+
+    const handleSaveUser = async () => {
+        try {
+            const currentBackend = await backend();
+            if (editingUser) {
+                // Update existing user
+                const updatedUser = {
+                    ...editingUser,
+                    username: formData.username,
+                    name: formData.name,
+                    role: formData.role,
+                    email: formData.email || undefined,
+                    isActive: formData.isActive
+                };
+                if (formData.password) {
+                    updatedUser.password = formData.password;
+                }
+                await currentBackend.updateUser(updatedUser);
+                showToast('Usuario actualizado', 'success');
+            } else {
+                // Create new user
+                await currentBackend.createUser({
+                    username: formData.username,
+                    password: formData.password,
+                    name: formData.name,
+                    role: formData.role,
+                    email: formData.email || undefined,
+                    isActive: formData.isActive
+                });
+                showToast('Usuario creado', 'success');
+            }
+            setShowModal(false);
+            refresh();
+        } catch (error) {
+            console.error('Error saving user:', error);
+            showToast(error instanceof Error ? error.message : 'Error al guardar usuario', 'error');
+        }
+    };
+
+    const handleResetPassword = async (u: User) => {
         const newPass = prompt(`Ingrese nueva contraseña para ${u.username}:`);
         if (newPass) {
-            const updated = { ...u, password: newPass };
-            mockBackend.updateUser(updated); // We added this method!
-            showToast('Contraseña actualizada', 'success');
-            refresh();
+            try {
+                const currentBackend = await backend();
+                const updated = { ...u, password: newPass };
+                await currentBackend.updateUser(updated);
+                showToast('Contraseña actualizada', 'success');
+                refresh();
+            } catch (error) {
+                console.error('Error updating password:', error);
+                showToast('Error al actualizar contraseña', 'error');
+            }
         }
     };
 

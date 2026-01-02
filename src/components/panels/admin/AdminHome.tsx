@@ -34,7 +34,7 @@ const AdminHome: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={<Users className="text-[#3e8391]" size={20} />} label="Usuarios Totales" value={userCount.toString()} />
                 <StatCard icon={<Building className="text-[#3e8391]" size={20} />} label="Uniones" value={mockBackend.getUnions().length.toString()} />
-                <StatCard icon={<Database className="text-[#3e8391]" size={20} />} label="Almacenamiento" value="PostgreSQL" />
+                <StatCard icon={<Database className="text-[#3e8391]" size={20} />} label="Almacenamiento" value="Supabase" />
                 <StatCard icon={<Activity className="text-[#3e8391]" size={20} />} label="Estado" value="Online" />
             </div>
 
@@ -87,12 +87,22 @@ const AdminHome: React.FC = () => {
                             <span className="font-mono text-gray-900 text-xs">Vite + React + TS</span>
                         </li>
                         <li className="border-b border-gray-50 pb-2">
-                            <span className="font-bold text-gray-500 uppercase text-[10px] tracking-wider">Compatibilidad DB</span>
+                            <span className="font-bold text-gray-500 uppercase text-[10px] tracking-wider">Backend Activo</span>
                             <div className="mt-1 text-xs text-gray-700">
                                 <div className="flex flex-wrap gap-1">
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">PostgreSQL 13+</span>
-                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">Neon Serverless</span>
-                                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Netlify Functions</span>
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">Supabase</span>
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">PostgreSQL</span>
+                                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Real-time</span>
+                                </div>
+                            </div>
+                        </li>
+                        <li className="border-b border-gray-50 pb-2">
+                            <span className="font-bold text-gray-500 uppercase text-[10px] tracking-wider">Compatibilidad</span>
+                            <div className="mt-1 text-xs text-gray-700">
+                                <div className="flex flex-wrap gap-1">
+                                    <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">Supabase Auth</span>
+                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">PostgreSQL 14+</span>
+                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded">Row Level Security</span>
                                 </div>
                             </div>
                         </li>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { backend } from '../../../services';
 import { useToast } from '../../../context/ToastContext';
 import { SmallGroup, Member } from '../../../types';
 import { Save } from 'lucide-react';
@@ -23,22 +23,27 @@ const AddMemberView: React.FC = () => {
         role: 'MIEMBRO'
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (gp) {
-            const newMember: any = {
-                id: Math.random().toString(36).substr(2, 9), // Generate ID
-                ...formData,
-                isBaptized: formData.isBaptized === 'Sí',
-                gpId: gp.id,
-                // Initialize progress trackers
-                leadershipProgress: {},
-                friendProgress: {}
-            };
+            try {
+                const newMember: any = {
+                    ...formData,
+                    isBaptized: formData.isBaptized === 'Sí',
+                    gpId: gp.id, // gp.id ya es UUID en Supabase
+                    // Initialize progress trackers
+                    leadershipProgress: {},
+                    friendProgress: {}
+                };
 
-            mockBackend.addMember(newMember);
-            showToast('Miembro agregado exitosamente', 'success');
-            navigate('/leader/members');
+                const currentBackend = await backend();
+                await currentBackend.addMember(newMember);
+                showToast('Miembro agregado exitosamente', 'success');
+                navigate('/leader/members');
+            } catch (error) {
+                console.error('Error adding member:', error);
+                showToast('Error al agregar miembro', 'error');
+            }
         }
     };
 
