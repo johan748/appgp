@@ -1,4 +1,4 @@
-```typescript
+
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Union, Association, District } from '../../../types';
@@ -53,7 +53,7 @@ const UnionReportsView: React.FC = () => {
 
             // 2. Walk down to reports
             // Hierarchy: Assoc -> Zone -> District -> Church -> GP -> Reports
-            
+
             const [allZones, allDistricts, allChurches, allGPs, allReports] = await Promise.all([
                 backend.getZones(),
                 backend.getDistricts(),
@@ -63,8 +63,8 @@ const UnionReportsView: React.FC = () => {
             ]);
 
             // Build date range
-            const startDate = new Date(`${ filters.startYear } -${ filters.startMonth }-01`);
-            const endDate = new Date(`${ filters.endYear } -${ filters.endMonth }-01`);
+            const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
+            const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
             endDate.setMonth(endDate.getMonth() + 1);
 
             const data = assocs.map(assoc => {
