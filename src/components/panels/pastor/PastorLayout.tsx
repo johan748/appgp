@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District } from '../../../types';
 import { ArrowLeft } from 'lucide-react';
 
@@ -9,14 +9,21 @@ const PastorLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { backend } = useBackend();
     const [district, setDistrict] = useState<District | null>(null);
 
     useEffect(() => {
-        if (user && user.relatedEntityId) {
-            const districtData = mockBackend.getDistricts().find(d => d.id === user.relatedEntityId);
-            setDistrict(districtData || null);
-        }
-    }, [user]);
+        const loadDistrict = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const districts = await backend.getDistricts();
+                    const districtData = districts.find(d => d.id === user.relatedEntityId);
+                    setDistrict(districtData || null);
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadDistrict();
+    }, [user, backend]);
 
     const getWelcomeMessage = () => {
         return `Bienvenido Pr. ${user?.name}`;

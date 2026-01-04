@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Settings, ArrowLeft } from 'lucide-react';
 
 const LeaderLayout: React.FC = () => {
     const { user, logout } = useAuth();
+    const { backend } = useBackend();
     const navigate = useNavigate();
     const location = useLocation();
     const [gp, setGp] = useState<SmallGroup | null>(null);
@@ -17,32 +18,43 @@ const LeaderLayout: React.FC = () => {
     });
 
     useEffect(() => {
-        if (user && user.relatedEntityId) {
-            const gpData = mockBackend.getGPById(user.relatedEntityId);
-            if (gpData) {
-                setGp(gpData);
-                setConfigForm({
-                    name: gpData.name,
-                    motto: gpData.motto,
-                    verse: gpData.verse,
-                    meetingDay: gpData.meetingDay,
-                    meetingTime: gpData.meetingTime
-                });
+        const loadGP = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const gpData = await backend.getGPById(user.relatedEntityId);
+                    if (gpData) {
+                        setGp(gpData);
+                        setConfigForm({
+                            name: gpData.name,
+                            motto: gpData.motto,
+                            verse: gpData.verse,
+                            meetingDay: gpData.meetingDay,
+                            meetingTime: gpData.meetingTime
+                        });
 
-                const gpMembers = mockBackend.getMembersByGP(gpData.id);
-                const leaderMember = gpMembers.find(m => m.id === gpData.leaderId);
-                setLeader(leaderMember || null);
+                        const gpMembers = await backend.getMembersByGP(gpData.id);
+                        const leaderMember = gpMembers.find(m => m.id === gpData.leaderId);
+                        setLeader(leaderMember || null);
+                    }
+                } catch (error) {
+                    console.error("Error loading GP data:", error);
+                }
             }
-        }
-    }, [user]);
+        };
+        loadGP();
+    }, [user, backend]);
 
-    const handleSaveConfig = (e: React.FormEvent) => {
+    const handleSaveConfig = async (e: React.FormEvent) => {
         e.preventDefault();
         if (gp) {
-            const updatedGp = { ...gp, ...configForm };
-            mockBackend.updateGP(updatedGp);
-            setGp(updatedGp);
-            setIsConfigOpen(false);
+            try {
+                const updatedGp = { ...gp, ...configForm };
+                await backend.updateGP(updatedGp);
+                setGp(updatedGp);
+                setIsConfigOpen(false);
+            } catch (error) {
+                console.error("Error updating GP:", error);
+            }
         }
     };
 

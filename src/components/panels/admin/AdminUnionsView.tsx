@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Union } from '../../../types';
 import { Plus, Edit, Trash2, Save, X, Building } from 'lucide-react';
 
 const AdminUnionsView: React.FC = () => {
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [unions, setUnions] = useState<Union[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [currentUnion, setCurrentUnion] = useState<Partial<Union>>({});
 
     useEffect(() => {
         loadUnions();
-    }, []);
+    }, [backend]);
 
-    const loadUnions = () => {
-        setUnions(mockBackend.getUnions());
+    const loadUnions = async () => {
+        try {
+            const u = await backend.getUnions();
+            setUnions(u);
+        } catch (e) { console.error(e); }
     };
 
     const handleEdit = (union: Union) => {
@@ -23,10 +27,13 @@ const AdminUnionsView: React.FC = () => {
         setIsEditing(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('¿Estás seguro de eliminar esta Unión? Esto podría afectar a las asociaciones vinculadas.')) {
-            mockBackend.deleteUnion(id);
-            loadUnions();
+            try {
+                await backend.deleteUnion(id);
+                loadUnions();
+                showToast('Unión eliminada', 'success');
+            } catch (e) { showToast('Error al eliminar', 'error'); }
         }
     };
 
@@ -39,23 +46,26 @@ const AdminUnionsView: React.FC = () => {
         setIsEditing(true);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!currentUnion.name || !currentUnion.evangelismDepartmentHead) {
             showToast('Por favor complete los campos obligatorios', 'warning');
             return;
         }
 
-        if (currentUnion.id) {
-            mockBackend.updateUnion(currentUnion as Union);
-        } else {
-            const newUnion = {
-                ...currentUnion,
-                id: 'union-' + Math.random().toString(36).substr(2, 9),
-            } as Union;
-            mockBackend.addUnion(newUnion);
-        }
-        setIsEditing(false);
-        loadUnions();
+        try {
+            if (currentUnion.id) {
+                await backend.updateUnion(currentUnion as Union);
+            } else {
+                const newUnion = {
+                    ...currentUnion,
+                    id: 'union-' + Math.random().toString(36).substr(2, 9),
+                } as Union;
+                await backend.addUnion(newUnion);
+            }
+            setIsEditing(false);
+            loadUnions();
+            showToast('Unión guardada', 'success');
+        } catch (e) { showToast('Error al guardar', 'error'); }
     };
 
     return (

@@ -1,33 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Church, SmallGroup } from '../../../types';
 import { Users, Heart, UserCheck } from 'lucide-react';
 
 const DirectorGroupsView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
+    const { backend } = useBackend();
     const [gps, setGps] = useState<SmallGroup[]>([]);
     const [stats, setStats] = useState<Record<string, { baptized: number, nonBaptized: number, pairs: number }>>({});
 
     useEffect(() => {
-        if (church) {
-            const churchGps = mockBackend.getGPs().filter(g => g.churchId === church.id);
-            setGps(churchGps);
+        const loadGroupsData = async () => {
+            if (church) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    const churchGps = allGPs.filter(g => g.churchId === church.id);
+                    setGps(churchGps);
 
-            const newStats: any = {};
-            churchGps.forEach(gp => {
-                const members = mockBackend.getMembersByGP(gp.id);
-                const pairs = mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id);
+                    const newStats: any = {};
 
-                newStats[gp.id] = {
-                    baptized: members.filter(m => m.isBaptized).length,
-                    nonBaptized: members.filter(m => !m.isBaptized).length,
-                    pairs: pairs.length
-                };
-            });
-            setStats(newStats);
-        }
-    }, [church]);
+                    // Fetch details for each GP - this could be n+1, but fine for now
+                    // Parallelize this for performance
+                    await Promise.all(churchGps.map(async (gp) => {
+                        const members = await backend.getMembersByGP(gp.id);
+                        const allPairs = await backend.getMissionaryPairs();
+                        const pairs = allPairs.filter(p => p.gpId === gp.id);
+
+                        newStats[gp.id] = {
+                            baptized: members.filter(m => m.isBaptized).length,
+                            nonBaptized: members.filter(m => !m.isBaptized).length,
+                            pairs: pairs.length
+                        };
+                    }));
+
+                    setStats(newStats);
+                } catch (error) {
+                    console.error("Error loading groups data:", error);
+                }
+            }
+        };
+        loadGroupsData();
+    }, [church, backend]);
 
     return (
         <div className="space-y-6">

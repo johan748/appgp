@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Association, District, Zone } from '../../../types';
 import { MapPin, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext';
 const AssociationDistrictsView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [districts, setDistricts] = useState<District[]>([]);
     const [zones, setZones] = useState<Zone[]>([]);
 
@@ -31,22 +32,24 @@ const AssociationDistrictsView: React.FC = () => {
     });
 
     useEffect(() => {
+        const loadData = async () => {
+            if (association) {
+                try {
+                    const allZones = await backend.getZones();
+                    const assocZones = allZones.filter(z => z && z.id && z.associationId === association.id);
+                    setZones(assocZones);
+
+                    // Get all districts for these zones
+                    const allDistricts = await backend.getDistricts();
+                    const assocDistricts = allDistricts.filter(d => d && d.id && assocZones.some(z => z.id === d.zoneId));
+                    setDistricts(assocDistricts);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
         loadData();
-    }, [association]);
-
-    const loadData = () => {
-        if (association) {
-            const assocZones = mockBackend.getZones()
-                .filter(z => z && z.id && z.associationId === association.id);
-            setZones(assocZones);
-
-            // Get all districts for these zones with validation
-            const allDistricts = mockBackend.getDistricts();
-            const assocDistricts = allDistricts
-                .filter(d => d && d.id && assocZones.some(z => z.id === d.zoneId));
-            setDistricts(assocDistricts);
-        }
-    };
+    }, [association, backend]);
 
     const handleCreate = () => {
         setEditingDistrict(null);
@@ -68,29 +71,30 @@ const AssociationDistrictsView: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleEdit = (district: District) => {
+    const handleEdit = async (district: District) => {
         setEditingDistrict(district);
-        // Find existing pastor user if possible, but for security we might not show password
-        // Since mock doesn't link perfectly back from district->user unless we search users for relatedEntityId
-        const users = mockBackend.getUsers();
-        const pastorUser = users.find(u => u.relatedEntityId === district.id && u.role === 'PASTOR');
+        // Find existing pastor user if possible
+        try {
+            const users = await backend.getUsers();
+            const pastorUser = users.find(u => u.relatedEntityId === district.id && u.role === 'PASTOR');
 
-        setFormData({
-            name: district.name,
-            zoneId: district.zoneId,
-            pastorName: pastorUser ? pastorUser.name : '',
-            username: pastorUser ? pastorUser.username : '',
-            password: '', // Don't show password on edit for now, or could show if mock
-            goals: district.goals || {
-                baptisms: { target: 0, period: 'Anual' },
-                weeklyAttendanceMembers: { target: 0, period: 'Semanal' },
-                weeklyAttendanceGp: { target: 0, period: 'Semanal' },
-                missionaryPairs: { target: 0, period: 'Anual' },
-                friends: { target: 0, period: 'Trimestral' },
-                bibleStudies: { target: 0, period: 'Semestral' }
-            }
-        });
-        setIsModalOpen(true);
+            setFormData({
+                name: district.name,
+                zoneId: district.zoneId,
+                pastorName: pastorUser ? pastorUser.name : '',
+                username: pastorUser ? pastorUser.username : '',
+                password: '',
+                goals: district.goals || {
+                    baptisms: { target: 0, period: 'Anual' },
+                    weeklyAttendanceMembers: { target: 0, period: 'Semanal' },
+                    weeklyAttendanceGp: { target: 0, period: 'Semanal' },
+                    missionaryPairs: { target: 0, period: 'Anual' },
+                    friends: { target: 0, period: 'Trimestral' },
+                    bibleStudies: { target: 0, period: 'Semestral' }
+                }
+            });
+            setIsModalOpen(true);
+        } catch (e) { console.error(e); }
     };
 
     const handleGoalChange = (goal: string, field: 'target' | 'period', value: any) => {
@@ -106,7 +110,7 @@ const AssociationDistrictsView: React.FC = () => {
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.zoneId) {
@@ -124,20 +128,20 @@ const AssociationDistrictsView: React.FC = () => {
                     goals: formData.goals
                 };
 
-                mockBackend.updateDistrict(updatedDistrict);
+                await backend.updateDistrict(updatedDistrict);
 
                 // Update Pastor User if changed
                 if (formData.username) {
-                    const users = mockBackend.getUsers();
+                    const users = await backend.getUsers();
                     const pastorUser = users.find(u => u.relatedEntityId === updatedDistrict.id && u.role === 'PASTOR');
                     if (pastorUser) {
                         const updatedUser = { ...pastorUser, name: formData.pastorName, username: formData.username };
                         if (formData.password) updatedUser.password = formData.password;
-                        mockBackend.updateUser(updatedUser);
+                        await backend.updateUser(updatedUser);
                     } else {
                         // Create if missing
                         try {
-                            mockBackend.createUser({
+                            await backend.createUser({
                                 username: formData.username,
                                 password: formData.password || 'password',
                                 role: 'PASTOR',
@@ -156,7 +160,8 @@ const AssociationDistrictsView: React.FC = () => {
                 if (existingName) throw new Error(`Ya existe un distrito con el nombre "${formData.name}".`);
 
                 if (formData.username) {
-                    const existingUser = mockBackend.getUsers().find(u => u.username === formData.username);
+                    const users = await backend.getUsers();
+                    const existingUser = users.find(u => u.username === formData.username);
                     if (existingUser) throw new Error(`El nombre de usuario "${formData.username}" ya está en uso.`);
                 }
 
@@ -165,17 +170,17 @@ const AssociationDistrictsView: React.FC = () => {
                     id: districtId,
                     name: formData.name,
                     zoneId: formData.zoneId,
-                    pastorId: '', // Ideally link to created user ID but strict linkage not critical for this view
+                    pastorId: '',
                     goals: formData.goals
                 };
 
                 // 2. Save District
-                mockBackend.addDistrict(newDistrict);
+                await backend.addDistrict(newDistrict);
 
-                // 3. Create Pastor User with Rollback
+                // 3. Create Pastor User with Rollback (simulated via try/catch)
                 if (formData.username && formData.password) {
                     try {
-                        mockBackend.createUser({
+                        await backend.createUser({
                             username: formData.username,
                             password: formData.password,
                             role: 'PASTOR',
@@ -183,25 +188,34 @@ const AssociationDistrictsView: React.FC = () => {
                             name: formData.pastorName
                         });
                     } catch (userError: any) {
-                        mockBackend.deleteDistrict(districtId);
+                        await backend.deleteDistrict(districtId);
                         throw new Error('Error al crear el usuario del pastor: ' + userError.message + '. Operación cancelada.');
                     }
                 }
             }
 
             setIsModalOpen(false);
-            loadData();
+            // Refresh data
+            const allZones = await backend.getZones();
+            const assocZones = allZones.filter(z => z && z.id && z.associationId === association.id);
+            const allDistricts = await backend.getDistricts();
+            setDistricts(allDistricts.filter(d => d && d.id && assocZones.some(z => z.id === d.zoneId)));
+
             showToast(editingDistrict ? 'Distrito actualizado exitosamente' : 'Distrito guardado exitosamente', 'success');
         } catch (error: any) {
             showToast(error.message, 'error');
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('¿Está seguro de eliminar este distrito?')) {
             try {
-                mockBackend.deleteDistrict(id);
-                loadData();
+                await backend.deleteDistrict(id);
+                // Refresh data
+                const allZones = await backend.getZones();
+                const assocZones = allZones.filter(z => z && z.id && z.associationId === association.id);
+                const allDistricts = await backend.getDistricts();
+                setDistricts(allDistricts.filter(d => d && d.id && assocZones.some(z => z.id === d.zoneId)));
                 showToast('Distrito eliminado correctamente', 'success');
             } catch (e: any) {
                 showToast('Error al eliminar: ' + e.message, 'error');

@@ -1,96 +1,111 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Zone, District, SmallGroup, WeeklyReport } from '../../../types';
 import { AlertTriangle, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
 
 const ZoneAlertsView: React.FC = () => {
     const { zone } = useOutletContext<{ zone: Zone }>();
+    const { backend } = useBackend();
     const [alerts, setAlerts] = useState<{ gp: SmallGroup, type: 'critical' | 'warning' | 'success', message: string, district: string }[]>([]);
 
     useEffect(() => {
-        if (zone) {
-            // Get all districts in this zone
-            const zoneDistricts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-            const newAlerts: typeof alerts = [];
+        const loadAlerts = async () => {
+            if (zone) {
+                try {
+                    // Get all districts in this zone
+                    const allDistricts = await backend.getDistricts();
+                    const zoneDistricts = allDistricts.filter(d => d.zoneId === zone.id);
 
-            zoneDistricts.forEach(district => {
-                const churches = mockBackend.getChurches().filter(c => c.districtId === district.id);
-                const gps = mockBackend.getGPs().filter(g => churches.some(c => c.id === g.churchId));
-                const reports = mockBackend.getReports();
+                    // Fetch all data once
+                    const [allChurches, allGPs, allReports, allMembers] = await Promise.all([
+                        backend.getChurches(),
+                        backend.getGPs(),
+                        backend.getReports(),
+                        backend.getMembers()
+                    ]);
 
-                gps.forEach(gp => {
-                    const gpReports = reports.filter(r => r.gpId === gp.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    const newAlerts: typeof alerts = [];
 
-                    // Check 1: No reports registered (Critical)
-                    if (gpReports.length === 0) {
-                        newAlerts.push({
-                            gp,
-                            type: 'critical',
-                            message: 'No se han registrado reportes.',
-                            district: district.name
+                    zoneDistricts.forEach(district => {
+                        const churches = allChurches.filter(c => c.districtId === district.id);
+                        const gps = allGPs.filter(g => churches.some(c => c.id === g.churchId));
+
+                        gps.forEach(gp => {
+                            const gpReports = allReports.filter(r => r.gpId === gp.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                            // Check 1: No reports registered (Critical)
+                            if (gpReports.length === 0) {
+                                newAlerts.push({
+                                    gp,
+                                    type: 'critical',
+                                    message: 'No se han registrado reportes.',
+                                    district: district.name
+                                });
+                            } else {
+                                const lastReport = gpReports[0];
+                                const members = allMembers.filter(m => m.gpId === gp.id);
+                                const attendanceCount = lastReport.attendance.filter(a => a.present).length;
+
+                                // Check 2: Low Attendance (Warning)
+                                if (members.length > 0 && (attendanceCount / members.length) < 0.5) {
+                                    newAlerts.push({
+                                        gp,
+                                        type: 'warning',
+                                        message: `Baja asistencia (${attendanceCount}/${members.length}) en el último reporte.`,
+                                        district: district.name
+                                    });
+                                }
+
+                                // Check 3: High Attendance (Success)
+                                if (members.length > 0 && (attendanceCount / members.length) >= 0.8) {
+                                    newAlerts.push({
+                                        gp,
+                                        type: 'success',
+                                        message: `¡Excelente asistencia! (${attendanceCount}/${members.length}) en el último reporte.`,
+                                        district: district.name
+                                    });
+                                }
+
+                                // Check 4: Good Bible Studies (Success)
+                                if (lastReport.summary?.totalStudies && lastReport.summary.totalStudies >= 5) {
+                                    newAlerts.push({
+                                        gp,
+                                        type: 'success',
+                                        message: `¡Gran cantidad de estudios bíblicos! (${lastReport.summary.totalStudies} estudios)`,
+                                        district: district.name
+                                    });
+                                }
+
+                                // Check 5: Baptisms (Success)
+                                if (lastReport.baptisms && lastReport.baptisms > 0) {
+                                    newAlerts.push({
+                                        gp,
+                                        type: 'success',
+                                        message: `¡Bautismos registrados! (${lastReport.baptisms} bautismos)`,
+                                        district: district.name
+                                    });
+                                }
+
+                                // Check 6: Regular Reporting (Success)
+                                if (gpReports.length >= 4) {
+                                    newAlerts.push({
+                                        gp,
+                                        type: 'success',
+                                        message: `¡Reportes consistentes! (${gpReports.length} reportes registrados)`,
+                                        district: district.name
+                                    });
+                                }
+                            }
                         });
-                    } else {
-                        const lastReport = gpReports[0];
-                        const members = mockBackend.getMembersByGP(gp.id);
-                        const attendanceCount = lastReport.attendance.filter(a => a.present).length;
+                    });
 
-                        // Check 2: Low Attendance (Warning)
-                        if (members.length > 0 && (attendanceCount / members.length) < 0.5) {
-                            newAlerts.push({
-                                gp,
-                                type: 'warning',
-                                message: `Baja asistencia (${attendanceCount}/${members.length}) en el último reporte.`,
-                                district: district.name
-                            });
-                        }
-
-                        // Check 3: High Attendance (Success)
-                        if (members.length > 0 && (attendanceCount / members.length) >= 0.8) {
-                            newAlerts.push({
-                                gp,
-                                type: 'success',
-                                message: `¡Excelente asistencia! (${attendanceCount}/${members.length}) en el último reporte.`,
-                                district: district.name
-                            });
-                        }
-
-                        // Check 4: Good Bible Studies (Success)
-                        if (lastReport.summary?.totalStudies && lastReport.summary.totalStudies >= 5) {
-                            newAlerts.push({
-                                gp,
-                                type: 'success',
-                                message: `¡Gran cantidad de estudios bíblicos! (${lastReport.summary.totalStudies} estudios)`,
-                                district: district.name
-                            });
-                        }
-
-                        // Check 5: Baptisms (Success)
-                        if (lastReport.baptisms && lastReport.baptisms > 0) {
-                            newAlerts.push({
-                                gp,
-                                type: 'success',
-                                message: `¡Bautismos registrados! (${lastReport.baptisms} bautismos)`,
-                                district: district.name
-                            });
-                        }
-
-                        // Check 6: Regular Reporting (Success)
-                        if (gpReports.length >= 4) {
-                            newAlerts.push({
-                                gp,
-                                type: 'success',
-                                message: `¡Reportes consistentes! (${gpReports.length} reportes registrados)`,
-                                district: district.name
-                            });
-                        }
-                    }
-                });
-            });
-
-            setAlerts(newAlerts);
-        }
-    }, [zone]);
+                    setAlerts(newAlerts);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadAlerts();
+    }, [zone, backend]);
 
     const getAlertIcon = (type: string) => {
         switch (type) {

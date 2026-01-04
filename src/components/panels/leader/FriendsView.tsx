@@ -1,51 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Check } from 'lucide-react';
 
 const FriendsView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const [friends, setFriends] = useState<Member[]>([]);
     const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
 
     useEffect(() => {
-        if (gp) {
-            // Filter non-baptized members
-            const allMembers = mockBackend.getMembersByGP(gp.id);
-            setFriends(allMembers.filter(m => !m.isBaptized));
-        }
-    }, [gp]);
-
-    const handleProgressChange = (memberId: string, field: keyof NonNullable<Member['friendProgress']>, checked: boolean) => {
-        const updatedFriends = friends.map(m => {
-            if (m.id === memberId) {
-                const newProgress = { ...m.friendProgress };
-                if (checked) {
-                    newProgress[field] = new Date().toISOString().split('T')[0];
-                } else {
-                    delete newProgress[field];
+        const loadFriends = async () => {
+            if (gp) {
+                try {
+                    // Filter non-baptized members
+                    const allMembers = await backend.getMembersByGP(gp.id);
+                    setFriends(allMembers.filter(m => !m.isBaptized));
+                } catch (error) {
+                    console.error("Error loading friends:", error);
                 }
-                const updatedMember = { ...m, friendProgress: newProgress };
-                mockBackend.updateMember(updatedMember);
-                return updatedMember;
             }
-            return m;
-        });
-        setFriends(updatedFriends);
+        };
+        loadFriends();
+    }, [gp, backend]);
+
+    const handleProgressChange = async (memberId: string, field: keyof NonNullable<Member['friendProgress']>, checked: boolean) => {
+        const friendToUpdate = friends.find(m => m.id === memberId);
+        if (friendToUpdate) {
+            const newProgress = { ...friendToUpdate.friendProgress };
+            if (checked) {
+                newProgress[field] = new Date().toISOString().split('T')[0];
+            } else {
+                delete newProgress[field];
+            }
+            const updatedMember = { ...friendToUpdate, friendProgress: newProgress };
+
+            try {
+                await backend.updateMember(updatedMember);
+                // Optimistic update
+                setFriends(friends.map(m => m.id === memberId ? updatedMember : m));
+            } catch (error) {
+                console.error("Error updating friend progress:", error);
+            }
+        }
     };
 
-    const handleDateChange = (memberId: string, field: keyof NonNullable<Member['friendProgress']>, date: string) => {
-        const updatedFriends = friends.map(m => {
-            if (m.id === memberId) {
-                const newProgress = { ...m.friendProgress, [field]: date };
-                const updatedMember = { ...m, friendProgress: newProgress };
-                mockBackend.updateMember(updatedMember);
-                return updatedMember;
+    const handleDateChange = async (memberId: string, field: keyof NonNullable<Member['friendProgress']>, date: string) => {
+        const friendToUpdate = friends.find(m => m.id === memberId);
+        if (friendToUpdate) {
+            const newProgress = { ...friendToUpdate.friendProgress, [field]: date };
+            const updatedMember = { ...friendToUpdate, friendProgress: newProgress };
+
+            try {
+                await backend.updateMember(updatedMember);
+                setFriends(friends.map(m => m.id === memberId ? updatedMember : m));
+            } catch (error) {
+                console.error("Error updating friend date:", error);
             }
-            return m;
-        });
-        setFriends(updatedFriends);
+        }
     };
 
     const steps = [

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, Church } from '../../../types';
 import { Save } from 'lucide-react';
 
@@ -9,15 +9,22 @@ const PastorEditChurchView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [formData, setFormData] = useState<Church | null>(null);
 
     useEffect(() => {
-        if (district) {
-            setChurches(mockBackend.getChurches().filter(c => c.districtId === district.id));
-        }
-    }, [district]);
+        const loadChurches = async () => {
+            if (district) {
+                try {
+                    const allChurches = await backend.getChurches();
+                    setChurches(allChurches.filter(c => c.districtId === district.id));
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadChurches();
+    }, [district, backend]);
 
     const handleSelect = (id: string) => {
         setSelectedChurchId(id);
@@ -27,17 +34,16 @@ const PastorEditChurchView: React.FC = () => {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData) {
-            // Update in backend (mock)
-            const allChurches = mockBackend.getChurches();
-            const index = allChurches.findIndex(c => c.id === formData.id);
-            if (index !== -1) {
-                allChurches[index] = formData;
-                localStorage.setItem('app_churches', JSON.stringify(allChurches));
+            try {
+                await backend.updateChurch(formData);
                 showToast('Iglesia actualizada exitosamente', 'success');
                 navigate('/pastor/churches');
+            } catch (error) {
+                console.error("Error updating church:", error);
+                showToast('Error al actualizar iglesia', 'error');
             }
         }
     };

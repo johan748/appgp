@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Association } from '../../../types';
 import { TrendingUp } from 'lucide-react';
 
 const AssociationGrowthView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
+    const { backend } = useBackend();
     const [growthData, setGrowthData] = useState<any[]>([]);
     const [filters, setFilters] = useState({
         startMonth: '01',
@@ -15,67 +16,80 @@ const AssociationGrowthView: React.FC = () => {
     });
 
     useEffect(() => {
-        if (association) {
-            const assocZones = mockBackend.getZones().filter(z => z.associationId === association.id);
-            const allDistricts = mockBackend.getDistricts().filter(d => assocZones.some(z => z.id === d.zoneId));
+        const loadGrowthData = async () => {
+            if (association) {
+                try {
+                    const allZones = await backend.getZones();
+                    const assocZones = allZones.filter(z => z.associationId === association.id);
+                    const allDistricts = await backend.getDistricts();
+                    const districts = allDistricts.filter(d => assocZones.some(z => z.id === d.zoneId));
 
-            // Build date range
-            const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
-            const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
-            endDate.setMonth(endDate.getMonth() + 1);
+                    // Pre-fetch related data
+                    const allChurches = await backend.getChurches();
+                    const allGPs = await backend.getGPs();
+                    const allReports = await backend.getReports();
+                    const allPairsQuery = await backend.getMissionaryPairs();
 
-            const data = allDistricts.map(d => {
-                const zoneName = assocZones.find(z => z.id === d.zoneId)?.name;
+                    // Build date range
+                    const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
+                    const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
+                    endDate.setMonth(endDate.getMonth() + 1);
 
-                // Get all churches and GPs in this district
-                const churches = mockBackend.getChurches().filter(c => c.districtId === d.id);
-                const gps = mockBackend.getGPs().filter(g => churches.some(c => c.id === g.churchId));
-                const allReports = mockBackend.getReports();
+                    const data = districts.map(d => {
+                        const zoneName = assocZones.find(z => z.id === d.zoneId)?.name;
 
-                // Filter reports by date range and district GPs
-                const reports = allReports.filter(r => {
-                    if (!gps.some(g => g.id === r.gpId)) return false;
-                    const reportDate = new Date(r.date);
-                    return reportDate >= startDate && reportDate < endDate;
-                });
+                        // Get all churches and GPs in this district
+                        const churches = allChurches.filter(c => c.districtId === d.id);
+                        const gps = allGPs.filter(g => churches.some(c => c.id === g.churchId));
 
-                // Calculate actuals from reports
-                const actualBaptisms = reports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
-                const actualStudies = reports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
-                const actualGuests = reports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
 
-                // Get missionary pairs count (filtered by creation date)
-                const allPairs = mockBackend.getMissionaryPairs().filter(p => {
-                    if (!gps.some(g => g.id === p.gpId)) return false;
-                    if (!p.createdAt) return true; // Include if no date (backward compatibility)
-                    const createdDate = new Date(p.createdAt);
-                    return createdDate >= startDate && createdDate < endDate;
-                });
+                        // Filter reports by date range and district GPs
+                        const reports = allReports.filter(r => {
+                            if (!gps.some(g => g.id === r.gpId)) return false;
+                            const reportDate = new Date(r.date);
+                            return reportDate >= startDate && reportDate < endDate;
+                        });
 
-                // Goals from district
-                const goalBaptisms = d.goals?.baptisms?.target || 0;
-                const goalStudies = d.goals?.bibleStudies?.target || 0;
-                const goalPairs = d.goals?.missionaryPairs?.target || 0;
-                const goalFriends = d.goals?.friends?.target || 0;
+                        // Calculate actuals from reports
+                        const actualBaptisms = reports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
+                        const actualStudies = reports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
+                        const actualGuests = reports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
 
-                // Calculate progress percentage
-                const progressPct = goalBaptisms > 0 ? Math.round((actualBaptisms / goalBaptisms) * 100) : 0;
+                        // Get missionary pairs count (filtered by creation date)
+                        const pairs = allPairsQuery.filter(p => {
+                            if (!gps.some(g => g.id === p.gpId)) return false;
+                            if (!p.createdAt) return true; // Include if no date (backward compatibility)
+                            const createdDate = new Date(p.createdAt);
+                            return createdDate >= startDate && createdDate < endDate;
+                        });
 
-                return {
-                    id: d.id,
-                    districtName: d.name,
-                    zoneName,
-                    progress: progressPct,
-                    studies: { goal: goalStudies, actual: actualStudies },
-                    pairs: { goal: goalPairs, actual: allPairs.length },
-                    friends: { goal: goalFriends, actual: actualGuests },
-                    baptisms: { goal: goalBaptisms, actual: actualBaptisms }
-                };
-            });
+                        // Goals from district
+                        const goalBaptisms = d.goals?.baptisms?.target || 0;
+                        const goalStudies = d.goals?.bibleStudies?.target || 0;
+                        const goalPairs = d.goals?.missionaryPairs?.target || 0;
+                        const goalFriends = d.goals?.friends?.target || 0;
 
-            setGrowthData(data);
-        }
-    }, [association, filters]);
+                        // Calculate progress percentage
+                        const progressPct = goalBaptisms > 0 ? Math.round((actualBaptisms / goalBaptisms) * 100) : 0;
+
+                        return {
+                            id: d.id,
+                            districtName: d.name,
+                            zoneName,
+                            progress: progressPct,
+                            studies: { goal: goalStudies, actual: actualStudies },
+                            pairs: { goal: goalPairs, actual: pairs.length },
+                            friends: { goal: goalFriends, actual: actualGuests },
+                            baptisms: { goal: goalBaptisms, actual: actualBaptisms }
+                        };
+                    });
+
+                    setGrowthData(data);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadGrowthData();
+    }, [association, filters, backend]);
 
     const getProgressColor = (actual: number, goal: number) => {
         if (goal === 0) return 'text-gray-400';

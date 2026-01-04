@@ -1,24 +1,34 @@
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Map, Users, TrendingUp, Settings, PieChart } from 'lucide-react';
 import { Association } from '../../../types';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { useState, useEffect } from 'react';
 
 const AssociationHome: React.FC = () => {
     const navigate = useNavigate();
     const { association } = useOutletContext<{ association: Association }>();
+    const { backend } = useBackend();
     const [activeGPs, setActiveGPs] = useState(0);
 
     useEffect(() => {
-        if (association) {
-            // Calculate Active GPs for this association
-            const zones = mockBackend.getZones().filter(z => z.associationId === association.id);
-            const districts = mockBackend.getDistricts().filter(d => zones.some(z => z.id === d.zoneId));
-            const churches = mockBackend.getChurches().filter(c => districts.some(d => d.id === c.districtId));
-            const gps = mockBackend.getGPs().filter(g => churches.some(c => c.id === g.churchId));
-            setActiveGPs(gps.length);
-        }
-    }, [association]);
+        const loadStats = async () => {
+            if (association) {
+                try {
+                    // Calculate Active GPs for this association
+                    const allZones = await backend.getZones();
+                    const zones = allZones.filter(z => z.associationId === association.id);
+                    const allDistricts = await backend.getDistricts();
+                    const districts = allDistricts.filter(d => zones.some(z => z.id === d.zoneId));
+                    const allChurches = await backend.getChurches();
+                    const churches = allChurches.filter(c => districts.some(d => d.id === c.districtId));
+                    const allGPs = await backend.getGPs();
+                    const gps = allGPs.filter(g => churches.some(c => c.id === g.churchId));
+                    setActiveGPs(gps.length);
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadStats();
+    }, [association, backend]);
 
     return (
         <div className="space-y-6">

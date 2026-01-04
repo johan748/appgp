@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useAuth } from '../../../context/AuthContext';
+import { useBackend } from '../../../context/BackendContext';
 import { Association } from '../../../types';
 import { ArrowLeft } from 'lucide-react';
 
@@ -9,25 +10,44 @@ const AssociationLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { backend } = useBackend();
     const [association, setAssociation] = useState<Association | null>(null);
+    const [unionName, setUnionName] = useState('Unión');
 
     useEffect(() => {
         // Association user usually doesn't have a relatedEntityId pointing to the association directly in the same way,
         // or it might. In mockBackend seed, user 'asociacion' has relatedEntityId: 'assoc-1'.
-        if (user && user.relatedEntityId) {
-            const assocData = mockBackend.getAssociationById(user.relatedEntityId);
-            if (assocData) {
-                setAssociation(assocData);
+        const loadAssociation = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const assocData = await backend.getAssociationById(user.relatedEntityId);
+                    if (assocData) {
+                        setAssociation(assocData);
+                    }
+                } catch (e) { console.error(e); }
+            } else if (user?.role === 'ASOCIACION') {
+                try {
+                    const allAssocs = await backend.getAssociations();
+                    const match = allAssocs.find(a => a.config.username === user.username);
+                    if (match) setAssociation(match);
+                    else if (allAssocs.length > 0) setAssociation(allAssocs[0]);
+                } catch (e) { console.error(e); }
             }
-        } else if (user?.role === 'ASOCIACION') {
-            // Fallback: This user is ASOCIACION but missing relatedEntityId?
-            // Try to find an association that has config matching this user's username
-            const allAssocs = mockBackend.getAssociations();
-            const match = allAssocs.find(a => a.config.username === user.username);
-            if (match) setAssociation(match);
-            else setAssociation(allAssocs[0]); // Last resort or error
-        }
-    }, [user]);
+        };
+        loadAssociation();
+    }, [user, backend]);
+
+    useEffect(() => {
+        const loadUnionName = async () => {
+            if (association?.unionId) {
+                try {
+                    const union = await backend.getUnionById(association.unionId);
+                    if (union) setUnionName(union.name);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadUnionName();
+    }, [association, backend]);
 
     const getWelcomeMessage = () => {
         // Prioritize the department head name from the association setting if available
@@ -39,15 +59,19 @@ const AssociationLayout: React.FC = () => {
 
     const isHome = location.pathname === '/association' || location.pathname === '/association/';
 
-    const refreshAssociation = () => {
+    const refreshAssociation = async () => {
         if (user && user.relatedEntityId) {
-            const assocData = mockBackend.getAssociationById(user.relatedEntityId);
-            if (assocData) setAssociation(assocData);
+            try {
+                const assocData = await backend.getAssociationById(user.relatedEntityId);
+                if (assocData) setAssociation(assocData);
+            } catch (e) { console.error(e); }
         } else if (user?.role === 'ASOCIACION') {
-            const allAssocs = mockBackend.getAssociations();
-            const match = allAssocs.find(a => a.config.username === user.username);
-            if (match) setAssociation(match);
-            else setAssociation(allAssocs[0]);
+            try {
+                const allAssocs = await backend.getAssociations();
+                const match = allAssocs.find(a => a.config.username === user.username);
+                if (match) setAssociation(match);
+                else if (allAssocs.length > 0) setAssociation(allAssocs[0]);
+            } catch (e) { console.error(e); }
         }
     };
 
@@ -66,7 +90,7 @@ const AssociationLayout: React.FC = () => {
                             <div>
                                 <h1 className="text-xl font-bold text-[#3e8391]">{association.name}</h1>
                                 <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">
-                                    {mockBackend.getUnionById(association.unionId)?.name || 'Unión'}
+                                    {unionName}
                                 </p>
                             </div>
                         </div>

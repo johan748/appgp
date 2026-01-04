@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Check, X, Edit, Trash2 } from 'lucide-react';
 
 const MembersView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const [members, setMembers] = useState<Member[]>([]);
     const navigate = useNavigate();
 
@@ -13,24 +14,30 @@ const MembersView: React.FC = () => {
         if (gp) {
             loadMembers();
         }
-    }, [gp]);
+    }, [gp, backend]);
 
-    const loadMembers = () => {
-        const allMembers = mockBackend.getMembersByGP(gp.id);
-        // Sort: Leader -> Secretary -> Others
-        const sorted = [...allMembers].sort((a, b) => {
-            const roleOrder = { 'LIDER': 1, 'SECRETARIO': 2, 'LIDER_EN_FORMACION': 3, 'MIEMBRO': 4 };
-            return (roleOrder[a.role as keyof typeof roleOrder] || 99) - (roleOrder[b.role as keyof typeof roleOrder] || 99);
-        });
-        setMembers(sorted);
+    const loadMembers = async () => {
+        try {
+            const allMembers = await backend.getMembersByGP(gp.id);
+            // Sort: Leader -> Secretary -> Others
+            const sorted = [...allMembers].sort((a, b) => {
+                const roleOrder = { 'LIDER': 1, 'SECRETARIO': 2, 'LIDER_EN_FORMACION': 3, 'MIEMBRO': 4 };
+                return (roleOrder[a.role as keyof typeof roleOrder] || 99) - (roleOrder[b.role as keyof typeof roleOrder] || 99);
+            });
+            setMembers(sorted);
+        } catch (error) {
+            console.error("Error loading members:", error);
+        }
     };
 
-    const handleDelete = (memberId: string) => {
+    const handleDelete = async (memberId: string) => {
         if (confirm('¿Estás seguro de eliminar este miembro?')) {
-            const allMembers = mockBackend.getMembers();
-            const filtered = allMembers.filter(m => m.id !== memberId);
-            localStorage.setItem('app_members', JSON.stringify(filtered));
-            loadMembers();
+            try {
+                await backend.deleteMember(memberId);
+                loadMembers();
+            } catch (error) {
+                console.error("Error deleting member:", error);
+            }
         }
     };
 

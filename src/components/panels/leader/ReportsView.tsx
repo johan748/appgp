@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, WeeklyReport, Member, MissionaryPair } from '../../../types';
 import { Check, X, Trash2, Calendar } from 'lucide-react';
 
 const ReportsView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const [reports, setReports] = useState<WeeklyReport[]>([]);
     const [selectedDate, setSelectedDate] = useState('');
     const [currentReport, setCurrentReport] = useState<WeeklyReport | null>(null);
@@ -13,13 +14,24 @@ const ReportsView: React.FC = () => {
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
 
     useEffect(() => {
-        if (gp) {
-            const gpReports = mockBackend.getReports().filter(r => r.gpId === gp.id);
-            setReports(gpReports);
-            setMembers(mockBackend.getMembersByGP(gp.id));
-            setPairs(mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id));
-        }
-    }, [gp]);
+        const loadData = async () => {
+            if (gp) {
+                try {
+                    const allReports = await backend.getReports();
+                    const gpReports = allReports.filter(r => r.gpId === gp.id);
+                    setReports(gpReports);
+
+                    const gpMembers = await backend.getMembersByGP(gp.id);
+                    setMembers(gpMembers);
+
+                    const allPairs = await backend.getMissionaryPairs();
+                    const gpPairs = allPairs.filter(p => p.gpId === gp.id);
+                    setPairs(gpPairs);
+                } catch (e) { console.error(e) }
+            }
+        };
+        loadData();
+    }, [gp, backend]);
 
     useEffect(() => {
         if (selectedDate) {
@@ -32,12 +44,16 @@ const ReportsView: React.FC = () => {
 
     const navigate = useNavigate();
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (currentReport && confirm('¿Estás seguro de eliminar este reporte?')) {
-            mockBackend.deleteReport(currentReport.id);
-            setReports(reports.filter(r => r.id !== currentReport.id));
-            setCurrentReport(null);
-            setSelectedDate('');
+            try {
+                await backend.deleteReport(currentReport.id);
+                setReports(reports.filter(r => r.id !== currentReport.id));
+                setCurrentReport(null);
+                setSelectedDate('');
+            } catch (error) {
+                console.error("Error deleting report:", error);
+            }
         }
     };
 

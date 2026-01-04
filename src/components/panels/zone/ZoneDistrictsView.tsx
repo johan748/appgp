@@ -1,34 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Zone, District } from '../../../types';
 import { Home, Users } from 'lucide-react';
 
 const ZoneDistrictsView: React.FC = () => {
     const { zone } = useOutletContext<{ zone: Zone }>();
+    const { backend } = useBackend();
     const [districts, setDistricts] = useState<District[]>([]);
     const [stats, setStats] = useState<Record<string, { churches: number, gps: number, members: number }>>({});
 
     useEffect(() => {
-        if (zone) {
-            const zoneDistricts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-            setDistricts(zoneDistricts);
+        const loadData = async () => {
+            if (zone) {
+                try {
+                    const allDistricts = await backend.getDistricts();
+                    const zoneDistricts = allDistricts.filter(d => d.zoneId === zone.id);
+                    setDistricts(zoneDistricts);
 
-            const newStats: any = {};
-            zoneDistricts.forEach(dist => {
-                const churches = mockBackend.getChurches().filter(c => c.districtId === dist.id);
-                const gps = mockBackend.getGPs().filter(g => churches.some(c => c.id === g.churchId));
-                const members = mockBackend.getMembers().filter(m => gps.some(g => g.id === m.gpId));
+                    const [allChurches, allGPs, allMembers] = await Promise.all([
+                        backend.getChurches(),
+                        backend.getGPs(),
+                        backend.getMembers()
+                    ]);
 
-                newStats[dist.id] = {
-                    churches: churches.length,
-                    gps: gps.length,
-                    members: members.length
-                };
-            });
-            setStats(newStats);
-        }
-    }, [zone]);
+                    const newStats: any = {};
+                    zoneDistricts.forEach(dist => {
+                        const churches = allChurches.filter(c => c.districtId === dist.id);
+                        const gps = allGPs.filter(g => churches.some(c => c.id === g.churchId));
+                        const members = allMembers.filter(m => gps.some(g => g.id === m.gpId));
+
+                        newStats[dist.id] = {
+                            churches: churches.length,
+                            gps: gps.length,
+                            members: members.length
+                        };
+                    });
+                    setStats(newStats);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadData();
+    }, [zone, backend]);
 
     return (
         <div className="space-y-6">

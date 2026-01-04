@@ -1,21 +1,56 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
-import { Zone, District, Church, SmallGroup, MissionaryPair, WeeklyReport } from '../../../types';
+import { useBackend } from '../../../context/BackendContext';
+import { Zone, District, Church, SmallGroup, MissionaryPair, WeeklyReport, Member } from '../../../types';
 import { Trophy, Users, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 
 const ZoneStatsView: React.FC = () => {
     const { zone } = useOutletContext<{ zone: Zone }>();
+    const { backend } = useBackend();
     const [districts, setDistricts] = useState<District[]>([]);
+    const [churches, setChurches] = useState<Church[]>([]);
+    const [gps, setGps] = useState<SmallGroup[]>([]);
+    const [reports, setReports] = useState<WeeklyReport[]>([]);
+    const [missionaryPairs, setMissionaryPairs] = useState<MissionaryPair[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
+
     const [expandedDistricts, setExpandedDistricts] = useState<Set<string>>(new Set());
     const [expandedChurches, setExpandedChurches] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (zone) {
-            const zoneDistricts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-            setDistricts(zoneDistricts);
-        }
-    }, [zone]);
+        const loadData = async () => {
+            if (zone) {
+                try {
+                    const allDistricts = await backend.getDistricts();
+                    const zoneDistricts = allDistricts.filter(d => d.zoneId === zone.id);
+                    setDistricts(zoneDistricts);
+
+                    const [allChurches, allGPs, allReports, allPairs, allMembers] = await Promise.all([
+                        backend.getChurches(),
+                        backend.getGPs(),
+                        backend.getReports(),
+                        backend.getMissionaryPairs(),
+                        backend.getMembers()
+                    ]);
+
+                    // Filter Relevant Data
+                    const relChurches = allChurches.filter(c => zoneDistricts.some(d => d.id === c.districtId));
+                    const relGPs = allGPs.filter(g => relChurches.some(c => c.id === g.churchId));
+                    const relGpIds = relGPs.map(g => g.id);
+                    // Reports, Pairs, Members belonging to these GPs
+                    // Note: reports is big, filtering upfront is good. Pairs and members usually smaller.
+
+                    setChurches(relChurches);
+                    setGps(relGPs);
+                    setReports(allReports); // Or filter: allReports.filter(r => relGpIds.includes(r.gpId))
+                    setMissionaryPairs(allPairs);
+                    setMembers(allMembers);
+
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadData();
+    }, [zone, backend]);
 
     const toggleDistrict = (districtId: string) => {
         const newExpanded = new Set(expandedDistricts);
@@ -38,16 +73,16 @@ const ZoneStatsView: React.FC = () => {
     };
 
     const getTopMissionaryPairs = (churchId: string) => {
-        const churchGPs = mockBackend.getGPs().filter(g => g.churchId === churchId);
+        const churchGPs = gps.filter(g => g.churchId === churchId);
         const gpIds = churchGPs.map(g => g.id);
-        const pairs = mockBackend.getMissionaryPairs().filter(p => gpIds.includes(p.gpId));
-        const allReports = mockBackend.getReports();
+        const pairs = missionaryPairs.filter(p => gpIds.includes(p.gpId));
 
         // Calculate total studies from weekly reports for each pair
         const pairsWithStudies = pairs.map(pair => {
-            const pairReports = allReports.filter(r => r.missionaryPairsStats.some((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id));
+            // Simplified check, inefficient for large datasets but ok for now.
+            const pairReports = reports.filter(r => r.missionaryPairsStats?.some((stats: any) => stats.pairId === pair.id));
             const totalStudies = pairReports.reduce((sum, r) => {
-                const pairStats = r.missionaryPairsStats.find((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id);
+                const pairStats = r.missionaryPairsStats?.find((stats: any) => stats.pairId === pair.id);
                 return sum + (pairStats?.studiesGiven || 0);
             }, 0);
             return { ...pair, totalStudies };
@@ -57,8 +92,7 @@ const ZoneStatsView: React.FC = () => {
     };
 
     const getTopGPs = (churchId: string) => {
-        const churchGPs = mockBackend.getGPs().filter(g => g.churchId === churchId);
-        const reports = mockBackend.getReports();
+        const churchGPs = gps.filter(g => g.churchId === churchId);
 
         const gpStats = churchGPs.map(gp => {
             const gpReports = reports.filter(r => r.gpId === gp.id);
@@ -71,7 +105,7 @@ const ZoneStatsView: React.FC = () => {
 
     const renderHierarchy = () => {
         return districts.map(district => {
-            const districtChurches = mockBackend.getChurches().filter(c => c.districtId === district.id);
+            const districtChurches = churches.filter(c => c.districtId === district.id);
             const isDistrictExpanded = expandedDistricts.has(district.id);
 
             return (
@@ -124,8 +158,8 @@ const ZoneStatsView: React.FC = () => {
                                                 </h6>
                                                 <div className="space-y-2">
                                                     {topPairs.map((pair, idx) => {
-                                                        const member1 = mockBackend.getMembers().find(m => m.id === pair.member1Id);
-                                                        const member2 = mockBackend.getMembers().find(m => m.id === pair.member2Id);
+                                                        const member1 = members.find(m => m.id === pair.member1Id);
+                                                        const member2 = members.find(m => m.id === pair.member2Id);
                                                         return (
                                                             <div key={pair.id} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
                                                                 <span className="text-sm">

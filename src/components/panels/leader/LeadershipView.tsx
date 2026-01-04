@@ -1,50 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Check } from 'lucide-react';
 
 const LeadershipView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const [members, setMembers] = useState<Member[]>([]);
 
     useEffect(() => {
-        if (gp) {
-            // Filter baptized members
-            const allMembers = mockBackend.getMembersByGP(gp.id);
-            setMembers(allMembers.filter(m => m.isBaptized));
-        }
-    }, [gp]);
-
-    const handleProgressChange = (memberId: string, field: keyof NonNullable<Member['leadershipProgress']>, checked: boolean) => {
-        const updatedMembers = members.map(m => {
-            if (m.id === memberId) {
-                const newProgress = { ...m.leadershipProgress };
-                if (checked) {
-                    newProgress[field] = new Date().toISOString().split('T')[0];
-                } else {
-                    delete newProgress[field];
-                }
-                const updatedMember = { ...m, leadershipProgress: newProgress };
-                mockBackend.updateMember(updatedMember);
-                return updatedMember;
+        const loadMembers = async () => {
+            if (gp) {
+                try {
+                    // Filter baptized members
+                    const allMembers = await backend.getMembersByGP(gp.id);
+                    setMembers(allMembers.filter(m => m.isBaptized));
+                } catch (error) { console.error(error) }
             }
-            return m;
-        });
-        setMembers(updatedMembers);
+        };
+        loadMembers();
+    }, [gp, backend]);
+
+    const handleProgressChange = async (memberId: string, field: keyof NonNullable<Member['leadershipProgress']>, checked: boolean) => {
+        const memberToUpdate = members.find(m => m.id === memberId);
+        if (memberToUpdate) {
+            const newProgress = { ...memberToUpdate.leadershipProgress };
+            if (checked) {
+                newProgress[field] = new Date().toISOString().split('T')[0];
+            } else {
+                delete newProgress[field];
+            }
+            const updatedMember = { ...memberToUpdate, leadershipProgress: newProgress };
+
+            try {
+                await backend.updateMember(updatedMember);
+                setMembers(members.map(m => m.id === memberId ? updatedMember : m));
+            } catch (error) {
+                console.error("Error updating leadership progress:", error);
+            }
+        }
     };
 
-    const handleDateChange = (memberId: string, field: keyof NonNullable<Member['leadershipProgress']>, date: string) => {
-        const updatedMembers = members.map(m => {
-            if (m.id === memberId) {
-                const newProgress = { ...m.leadershipProgress, [field]: date };
-                const updatedMember = { ...m, leadershipProgress: newProgress };
-                mockBackend.updateMember(updatedMember);
-                return updatedMember;
+    const handleDateChange = async (memberId: string, field: keyof NonNullable<Member['leadershipProgress']>, date: string) => {
+        const memberToUpdate = members.find(m => m.id === memberId);
+        if (memberToUpdate) {
+            const newProgress = { ...memberToUpdate.leadershipProgress, [field]: date };
+            const updatedMember = { ...memberToUpdate, leadershipProgress: newProgress };
+
+            try {
+                await backend.updateMember(updatedMember);
+                setMembers(members.map(m => m.id === memberId ? updatedMember : m));
+            } catch (error) {
+                console.error("Error updating leadership date:", error);
             }
-            return m;
-        });
-        setMembers(updatedMembers);
+        }
     };
 
     const steps = [

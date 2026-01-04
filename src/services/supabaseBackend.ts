@@ -1,4 +1,4 @@
-import { supabase, getCurrentUserId, getCurrentUser } from '../../supabaseClient.js'
+import { supabase, getCurrentUserId, getCurrentUser } from '../../supabaseClient'
 import { User, SmallGroup, Member, Church, District, Zone, Association, WeeklyReport, MissionaryPair, Role, Union } from '../types'
 
 class SupabaseBackendService {
@@ -464,6 +464,7 @@ class SupabaseBackendService {
     }
 
     // Union methods
+    // Union methods
     async getUnions(): Promise<Union[]> {
         try {
             const { data, error } = await supabase
@@ -488,6 +489,320 @@ class SupabaseBackendService {
         }
     }
 
+    async addUnion(union: Union): Promise<Union> {
+        try {
+            const { data, error } = await supabase
+                .from('unions')
+                .insert([{
+                    id: union.id,
+                    name: union.name,
+                    evangelism_department_head: union.evangelismDepartmentHead,
+                    config: union.config
+                }])
+                .select()
+                .single()
+
+            if (error) throw error
+
+            return {
+                id: data.id,
+                name: data.name,
+                evangelismDepartmentHead: data.evangelism_department_head,
+                config: data.config
+            }
+        } catch (error) {
+            console.error('Error adding union:', error)
+            throw error
+        }
+    }
+
+    async updateUnion(union: Union): Promise<Union> {
+        try {
+            const { data, error } = await supabase
+                .from('unions')
+                .update({
+                    name: union.name,
+                    evangelism_department_head: union.evangelismDepartmentHead,
+                    config: union.config
+                })
+                .eq('id', union.id)
+                .select()
+                .single()
+
+            if (error) throw error
+
+            return {
+                id: data.id,
+                name: data.name,
+                evangelismDepartmentHead: data.evangelism_department_head,
+                config: data.config
+            }
+        } catch (error) {
+            console.error('Error updating union:', error)
+            throw error
+        }
+    }
+
+    async deleteUnion(id: string): Promise<void> {
+        try {
+            const { error } = await supabase.from('unions').delete().eq('id', id)
+            if (error) throw error
+        } catch (error) {
+            console.error('Error deleting union:', error)
+            throw error
+        }
+    }
+
+    // Association methods
+    async getAssociations(): Promise<Association[]> {
+        try {
+            const { data, error } = await supabase.from('associations').select('*')
+            if (error) throw error
+            return data.map(a => ({
+                id: a.id,
+                name: a.name,
+                departmentHead: a.department_head,
+                unionId: a.union_id,
+                membershipCount: a.membership_count,
+                config: a.config
+            }))
+        } catch (error) {
+            console.error('Error fetching associations:', error)
+            return []
+        }
+    }
+
+    async addAssociation(assoc: Association): Promise<Association> {
+        try {
+            const { data, error } = await supabase
+                .from('associations')
+                .insert([{
+                    id: assoc.id,
+                    name: assoc.name,
+                    department_head: assoc.departmentHead,
+                    union_id: assoc.unionId,
+                    membership_count: assoc.membershipCount,
+                    config: assoc.config
+                }])
+                .select()
+                .single()
+            if (error) throw error
+            return {
+                id: data.id,
+                name: data.name,
+                departmentHead: data.department_head,
+                unionId: data.union_id,
+                membershipCount: data.membership_count,
+                config: data.config
+            }
+        } catch (e) { console.error(e); throw e; }
+    }
+
+    async updateAssociation(assoc: Association): Promise<Association> {
+        try {
+            const { data, error } = await supabase
+                .from('associations')
+                .update({
+                    name: assoc.name,
+                    department_head: assoc.departmentHead,
+                    union_id: assoc.unionId,
+                    membership_count: assoc.membershipCount,
+                    config: assoc.config
+                })
+                .eq('id', assoc.id)
+                .select()
+                .single()
+            if (error) throw error
+            return {
+                id: data.id,
+                name: data.name,
+                departmentHead: data.department_head,
+                unionId: data.union_id,
+                membershipCount: data.membership_count,
+                config: data.config
+            }
+        } catch (e) { console.error(e); throw e; }
+    }
+
+    async deleteAssociation(id: string): Promise<void> {
+        await supabase.from('associations').delete().eq('id', id);
+    }
+
+    // Zone methods
+    async getZones(): Promise<Zone[]> {
+        const { data, error } = await supabase.from('zones').select('*')
+        if (error || !data) return []
+        return data.map(z => ({
+            id: z.id,
+            name: z.name,
+            directorId: z.director_id,
+            associationId: z.association_id,
+            goals: z.goals
+        }))
+    }
+
+    async addZone(zone: Zone): Promise<Zone> {
+        const { data, error } = await supabase.from('zones').insert([{
+            id: zone.id, name: zone.name, director_id: zone.directorId, association_id: zone.associationId, goals: zone.goals
+        }]).select().single();
+        if (error) throw error;
+        return { id: data.id, name: data.name, directorId: data.director_id, associationId: data.association_id, goals: data.goals };
+    }
+
+    async updateZone(zone: Zone): Promise<void> {
+        const { error } = await supabase.from('zones').update({
+            name: zone.name, director_id: zone.directorId, association_id: zone.associationId, goals: zone.goals
+        }).eq('id', zone.id);
+        if (error) throw error;
+    }
+
+    async deleteZone(id: string): Promise<void> {
+        const { error } = await supabase.from('zones').delete().eq('id', id);
+        if (error) throw error;
+    }
+
+    // District methods
+    async getDistricts(): Promise<District[]> {
+        const { data, error } = await supabase.from('districts').select('*')
+        if (error || !data) return []
+        return data.map(d => ({
+            id: d.id,
+            name: d.name,
+            pastorId: d.pastor_id,
+            zoneId: d.zone_id,
+            goals: d.goals
+        }))
+    }
+
+    async addDistrict(district: District): Promise<District> {
+        const { data, error } = await supabase.from('districts').insert([{
+            id: district.id, name: district.name, pastor_id: district.pastorId, zone_id: district.zoneId, goals: district.goals
+        }]).select().single();
+        if (error) throw error;
+        return { id: data.id, name: data.name, pastorId: data.pastor_id, zoneId: data.zone_id, goals: data.goals };
+    }
+
+    async updateDistrict(district: District): Promise<void> {
+        const { error } = await supabase.from('districts').update({
+            name: district.name, pastor_id: district.pastorId, zone_id: district.zoneId, goals: district.goals
+        }).eq('id', district.id);
+        if (error) throw error;
+    }
+
+    async deleteDistrict(id: string): Promise<void> {
+        const { error } = await supabase.from('districts').delete().eq('id', id);
+        if (error) throw error;
+    }
+
+    // Church methods
+    async getChurches(): Promise<Church[]> {
+        const { data, error } = await supabase.from('churches').select('*')
+        if (error || !data) return []
+        return data.map(c => ({
+            id: c.id,
+            name: c.name,
+            districtId: c.district_id,
+            directorId: c.director_id,
+            address: c.address
+        }))
+    }
+
+    async addChurch(church: Church): Promise<Church> {
+        const { data, error } = await supabase.from('churches').insert([{
+            id: church.id, name: church.name, district_id: church.districtId, director_id: church.directorId, address: church.address
+        }]).select().single();
+        if (error) throw error;
+        return { id: data.id, name: data.name, districtId: data.district_id, directorId: data.director_id, address: data.address };
+    }
+
+    async updateChurch(church: Church): Promise<void> {
+        const { error } = await supabase.from('churches').update({
+            name: church.name, district_id: church.districtId, director_id: church.directorId, address: church.address
+        }).eq('id', church.id);
+        if (error) throw error;
+    }
+
+    async deleteChurch(id: string): Promise<void> {
+        const { error } = await supabase.from('churches').delete().eq('id', id);
+        if (error) throw error;
+    }
+
+    // Missionary Pairs
+    async getMissionaryPairs(): Promise<MissionaryPair[]> {
+        const { data, error } = await supabase.from('missionary_pairs').select('*')
+        if (error || !data) return []
+        return data.map(p => ({
+            id: p.id,
+            gpId: p.gp_id,
+            member1Id: p.member1_id,
+            member2Id: p.member2_id,
+            studiesGiven: p.studies_given
+        }))
+    }
+    async createMissionaryPair(pair: MissionaryPair): Promise<MissionaryPair> {
+        const { data, error } = await supabase.from('missionary_pairs').insert([{
+            id: pair.id, gp_id: pair.gpId, member1_id: pair.member1Id, member2_id: pair.member2Id, studies_given: pair.studiesGiven
+        }]).select().single();
+        if (error) throw error;
+        return { id: data.id, gpId: data.gp_id, member1Id: data.member1_id, member2Id: data.member2_id, studiesGiven: data.studies_given };
+    }
+    async deleteMissionaryPair(id: string): Promise<void> {
+        const { error } = await supabase.from('missionary_pairs').delete().eq('id', id);
+        if (error) throw error;
+    }
+
+    // Reports
+    async getReports(): Promise<WeeklyReport[]> {
+        const { data, error } = await supabase.from('weekly_reports').select('*')
+        if (error || !data) return []
+        return data.map(r => ({
+            id: r.id,
+            gpId: r.gp_id,
+            date: r.date,
+            attendance: r.attendance,
+            studies: r.studies,
+            summary: r.summary,
+            missionaryPairsStats: r.missionary_pairs_stats,
+            baptisms: r.summary?.baptisms || 0
+        }))
+    }
+    async createReport(report: Omit<WeeklyReport, 'id'>): Promise<WeeklyReport> {
+        const newId = report.date + '-' + report.gpId + '-' + Math.floor(Math.random() * 1000);
+        const { data, error } = await supabase.from('weekly_reports').insert([{
+            id: newId,
+            gp_id: report.gpId,
+            date: report.date,
+            attendance: report.attendance,
+            studies: report.studies,
+            summary: report.summary,
+            missionary_pairs_stats: report.missionaryPairsStats
+        }]).select().single();
+
+        if (error) throw error;
+        return {
+            id: data.id,
+            gpId: data.gp_id,
+            date: data.date,
+            attendance: data.attendance || [],
+            studies: data.studies || [],
+            summary: data.summary || { totalAttendance: 0, totalStudies: 0, baptisms: 0 },
+            missionaryPairsStats: data.missionary_pairs_stats || []
+        };
+    }
+    async updateReport(report: any): Promise<void> {
+        const { error } = await supabase.from('weekly_reports').update({
+            attendance: report.attendance,
+            studies: report.studies,
+            summary: report.summary,
+            missionary_pairs_stats: report.missionaryPairsStats
+        }).eq('id', report.id);
+        if (error) throw error;
+    }
+    async deleteReport(id: string): Promise<void> {
+        const { error } = await supabase.from('weekly_reports').delete().eq('id', id);
+        if (error) throw error;
+    }
+
     // Compatibility methods
     cleanupDuplicates(): void {
         console.log('Cleanup not needed for Supabase')
@@ -498,12 +813,7 @@ class SupabaseBackendService {
     }
 
     // Placeholder methods for other entities (to be implemented as needed)
-    getChurches(): Promise<Church[]> { return Promise.resolve([]) }
-    getDistricts(): Promise<District[]> { return Promise.resolve([]) }
-    getZones(): Promise<Zone[]> { return Promise.resolve([]) }
-    getAssociations(): Promise<Association[]> { return Promise.resolve([]) }
-    getMissionaryPairs(): Promise<MissionaryPair[]> { return Promise.resolve([]) }
-    getReports(): Promise<WeeklyReport[]> { return Promise.resolve([]) }
+
 }
 
 export const supabaseBackend = new SupabaseBackendService()

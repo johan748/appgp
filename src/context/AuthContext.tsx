@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { backend } from '../services';
+import { useBackend } from './BackendContext';
 
 interface AuthContextType {
     user: User | null;
@@ -13,20 +13,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { backend, isLoading: isBackendLoading } = useBackend();
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const initializeBackend = async () => {
-            try {
-                const currentBackend = await backend();
-                // Initialize if available
-                if (currentBackend.initialize) {
-                    currentBackend.initialize();
-                }
-            } catch (error) {
-                console.error('Error initializing backend:', error);
-            }
+        const initAuth = async () => {
+            // Wait for backend to be ready
+            if (isBackendLoading) return;
 
             // Check for existing session
             const storedUser = localStorage.getItem('current_user');
@@ -35,27 +29,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (storedUser && token) {
                 try {
                     setUser(JSON.parse(storedUser));
-                    setIsLoading(false);
                 } catch (error) {
                     console.error('Error parsing stored user:', error);
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('current_user');
                     setUser(null);
-                    setIsLoading(false);
                 }
-            } else {
-                setIsLoading(false);
             }
+            setIsLoading(false);
         };
 
-        initializeBackend();
-    }, []);
+        initAuth();
+    }, [isBackendLoading]);
 
     const login = async (username: string, password: string): Promise<boolean> => {
         setIsLoading(true);
         try {
-            const currentBackend = await backend();
-            const authenticatedUser = await currentBackend.authenticate(username, password);
+            const authenticatedUser = await backend.authenticate(username, password);
 
             if (authenticatedUser) {
                 setUser(authenticatedUser);

@@ -1,11 +1,13 @@
+```typescript
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Union, Association, District } from '../../../types';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Users, Activity, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 
 const UnionReportsView: React.FC = () => {
     const { union } = useOutletContext<{ union: Union }>();
+    const { backend } = useBackend();
     const [reportData, setReportData] = useState<any[]>([]);
     const [totals, setTotals] = useState({ attendance: 0, studies: 0, baptisms: 0 });
     const [filters, setFilters] = useState({
@@ -31,7 +33,7 @@ const UnionReportsView: React.FC = () => {
         if (union) {
             calculateReports();
         }
-    }, [union, filters]);
+    }, [union, filters, backend]);
 
     const toggleAssociation = (assocId: string) => {
         const newExpanded = new Set(expandedAssociations);
@@ -43,83 +45,86 @@ const UnionReportsView: React.FC = () => {
         setExpandedAssociations(newExpanded);
     };
 
-    const calculateReports = () => {
-        // 1. Get Associations in Union
-        const assocs = mockBackend.getAssociations().filter(a => a.unionId === union.id);
+    const calculateReports = async () => {
+        try {
+            // 1. Get Associations in Union
+            const allAssocs = await backend.getAssociations();
+            const assocs = allAssocs.filter(a => a.unionId === union.id);
 
-        // 2. Walk down to reports
-        // Since mockBackend doesn't have an easy "getReportsByAssociation", we have to do the heavy lifting here
-        // or iterate nicely.
-        // Hierarchy: Assoc -> Zone -> District -> Church -> GP -> Reports
+            // 2. Walk down to reports
+            // Hierarchy: Assoc -> Zone -> District -> Church -> GP -> Reports
+            
+            const [allZones, allDistricts, allChurches, allGPs, allReports] = await Promise.all([
+                backend.getZones(),
+                backend.getDistricts(),
+                backend.getChurches(),
+                backend.getGPs(),
+                backend.getReports()
+            ]);
 
-        const allZones = mockBackend.getZones();
-        const allDistricts = mockBackend.getDistricts();
-        const allChurches = mockBackend.getChurches();
-        const allGPs = mockBackend.getGPs();
-        const allReports = mockBackend.getReports();
+            // Build date range
+            const startDate = new Date(`${ filters.startYear } -${ filters.startMonth }-01`);
+            const endDate = new Date(`${ filters.endYear } -${ filters.endMonth }-01`);
+            endDate.setMonth(endDate.getMonth() + 1);
 
-        // Build date range
-        const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
-        const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
-        endDate.setMonth(endDate.getMonth() + 1);
+            const data = assocs.map(assoc => {
+                // Find related zones
+                const zones = allZones.filter(z => z.associationId === assoc.id);
+                const districtIds = allDistricts.filter(d => zones.some(z => z.id === d.zoneId)).map(d => d.id);
+                const churchIds = allChurches.filter(c => districtIds.includes(c.districtId)).map(c => c.id);
+                const gps = allGPs.filter(g => churchIds.includes(g.churchId)); // Note: GP has churchId
+                const gpIds = gps.map(g => g.id);
 
-        const data = assocs.map(assoc => {
-            // Find related zones
-            const zones = allZones.filter(z => z.associationId === assoc.id);
-            const districtIds = allDistricts.filter(d => zones.some(z => z.id === d.zoneId)).map(d => d.id);
-            const churchIds = allChurches.filter(c => districtIds.includes(c.districtId)).map(c => c.id);
-            const gps = allGPs.filter(g => churchIds.includes(g.churchId)); // Note: GP has churchId
-            const gpIds = gps.map(g => g.id);
-
-            // Filter reports for these GPs and date range
-            const assocReports = allReports.filter(r => {
-                if (!gpIds.includes(r.gpId)) return false;
-                const reportDate = new Date(r.date);
-                return reportDate >= startDate && reportDate < endDate;
-            });
-
-            // Get districts for this association
-            const assocDistricts = allDistricts.filter(d => zones.some(z => z.id === d.zoneId));
-
-            const districts = assocDistricts.map(district => {
-                const districtChurches = allChurches.filter(c => c.districtId === district.id);
-                const districtGPs = allGPs.filter(g => districtChurches.some(c => c.id === g.churchId));
-                const districtReports = allReports.filter(r => {
-                    if (!districtGPs.some(g => g.id === r.gpId)) return false;
+                // Filter reports for these GPs and date range
+                const assocReports = allReports.filter(r => {
+                    if (!gpIds.includes(r.gpId)) return false;
                     const reportDate = new Date(r.date);
                     return reportDate >= startDate && reportDate < endDate;
                 });
 
+                // Get districts for this association
+                const assocDistricts = allDistricts.filter(d => zones.some(z => z.id === d.zoneId));
+
+                const districts = assocDistricts.map(district => {
+                    const districtChurches = allChurches.filter(c => c.districtId === district.id);
+                    const districtGPs = allGPs.filter(g => districtChurches.some(c => c.id === g.churchId));
+                    const districtReports = allReports.filter(r => {
+                        if (!districtGPs.some(g => g.id === r.gpId)) return false;
+                        const reportDate = new Date(r.date);
+                        return reportDate >= startDate && reportDate < endDate;
+                    });
+
+                    return {
+                        id: district.id,
+                        name: district.name,
+                        attendance: districtReports.reduce((s, r) => s + (r.summary?.totalAttendance || 0), 0),
+                        studies: districtReports.reduce((s, r) => s + (r.summary?.totalStudies || 0), 0),
+                        baptisms: districtReports.reduce((s, r) => s + (r.summary?.baptisms || 0), 0)
+                    };
+                });
+
+                // Calculate association totals by summing district totals
+                const associationAttendance = districts.reduce((sum, d) => sum + d.attendance, 0);
+                const associationStudies = districts.reduce((sum, d) => sum + d.studies, 0);
+                const associationBaptisms = districts.reduce((sum, d) => sum + d.baptisms, 0);
+
                 return {
-                    id: district.id,
-                    name: district.name,
-                    attendance: districtReports.reduce((s, r) => s + (r.summary?.totalAttendance || 0), 0),
-                    studies: districtReports.reduce((s, r) => s + (r.summary?.totalStudies || 0), 0),
-                    baptisms: districtReports.reduce((s, r) => s + (r.summary?.baptisms || 0), 0)
+                    id: assoc.id,
+                    name: assoc.name,
+                    attendance: associationAttendance,
+                    studies: associationStudies,
+                    baptisms: associationBaptisms,
+                    districts
                 };
             });
 
-            // Calculate association totals by summing district totals
-            const associationAttendance = districts.reduce((sum, d) => sum + d.attendance, 0);
-            const associationStudies = districts.reduce((sum, d) => sum + d.studies, 0);
-            const associationBaptisms = districts.reduce((sum, d) => sum + d.baptisms, 0);
-
-            return {
-                id: assoc.id,
-                name: assoc.name,
-                attendance: associationAttendance,
-                studies: associationStudies,
-                baptisms: associationBaptisms,
-                districts
-            };
-        });
-
-        setReportData(data);
-        setTotals({
-            attendance: data.reduce((s, d) => s + d.attendance, 0),
-            studies: data.reduce((s, d) => s + d.studies, 0),
-            baptisms: data.reduce((s, d) => s + d.baptisms, 0)
-        });
+            setReportData(data);
+            setTotals({
+                attendance: data.reduce((s, d) => s + d.attendance, 0),
+                studies: data.reduce((s, d) => s + d.studies, 0),
+                baptisms: data.reduce((s, d) => s + d.baptisms, 0)
+            });
+        } catch (e) { console.error(e); }
     };
 
     return (

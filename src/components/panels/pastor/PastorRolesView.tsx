@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, Member, Church, SmallGroup } from '../../../types';
 import { Shield } from 'lucide-react';
 
 const PastorRolesView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [gps, setGps] = useState<SmallGroup[]>([]);
@@ -15,38 +16,58 @@ const PastorRolesView: React.FC = () => {
     const [filterGp, setFilterGp] = useState('');
 
     useEffect(() => {
-        // Load churches
-        const allChurches = mockBackend.getChurches();
-        setChurches(allChurches.filter(c => c.districtId === district.id));
-    }, [district.id]);
+        const loadChurches = async () => {
+            if (district) {
+                try {
+                    const allChurches = await backend.getChurches();
+                    setChurches(allChurches.filter(c => c.districtId === district.id));
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadChurches();
+    }, [district.id, backend]);
 
     useEffect(() => {
-        if (selectedChurchId) {
-            const churchGps = mockBackend.getGPs().filter(g => g.churchId === selectedChurchId);
-            setGps(churchGps);
+        const loadGpsAndMembers = async () => {
+            if (selectedChurchId) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    const churchGps = allGPs.filter(g => g.churchId === selectedChurchId);
+                    setGps(churchGps);
 
-            // Get members from all GPs in this church
-            let churchMembers: Member[] = [];
-            churchGps.forEach(gp => {
-                const gpMembers = mockBackend.getMembersByGP(gp.id);
-                churchMembers = [...churchMembers, ...gpMembers];
-            });
-            setMembers(churchMembers);
-        } else {
-            setGps([]);
-            setMembers([]);
-        }
-    }, [selectedChurchId]);
+                    // Get members from all GPs in this church
+                    // In a real backend we might query members by ChurchID if supported, or loop efficiently.
+                    // Assuming we have getMembersByGP or getMembers() and filter
+                    // If getMembersByGP is cheap:
+                    let churchMembers: Member[] = [];
+                    await Promise.all(churchGps.map(async (gp) => {
+                        const gpMembers = await backend.getMembersByGP(gp.id);
+                        churchMembers = [...churchMembers, ...gpMembers];
+                    }));
 
-    const handleRoleChange = (memberId: string, newRole: string) => {
+                    setMembers(churchMembers);
+                } catch (e) { console.error(e); }
+            } else {
+                setGps([]);
+                setMembers([]);
+            }
+        };
+        loadGpsAndMembers();
+    }, [selectedChurchId, backend]);
+
+    const handleRoleChange = async (memberId: string, newRole: string) => {
         const member = members.find(m => m.id === memberId);
         if (member) {
             const updatedMember = { ...member, role: newRole as any };
-            mockBackend.updateMember(updatedMember);
-
-            // Refresh local state
-            setMembers(prev => prev.map(m => m.id === memberId ? updatedMember : m));
-            showToast(`Rol de ${member.firstName} actualizado a ${newRole}`, 'info');
+            try {
+                await backend.updateMember(updatedMember);
+                // Refresh local state
+                setMembers(prev => prev.map(m => m.id === memberId ? updatedMember : m));
+                showToast(`Rol de ${member.firstName} actualizado a ${newRole}`, 'info');
+            } catch (error) {
+                console.error(error);
+                showToast('Error al actualizar rol', 'error');
+            }
         }
     };
 

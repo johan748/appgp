@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member, MissionaryPair } from '../../../types';
 import { Save } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -9,6 +9,7 @@ const AttendanceView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [members, setMembers] = useState<Member[]>([]);
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
@@ -19,25 +20,33 @@ const AttendanceView: React.FC = () => {
     const [pairStudiesData, setPairStudiesData] = useState<Record<string, number>>({});
 
     useEffect(() => {
-        if (gp) {
-            const gpMembers = mockBackend.getMembersByGP(gp.id);
-            setMembers(gpMembers);
-            setPairs(mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id));
+        const loadCombine = async () => {
+            if (gp) {
+                try {
+                    const gpMembers = await backend.getMembersByGP(gp.id);
+                    setMembers(gpMembers);
 
-            // Initialize form data
-            const initialData: any = {};
-            gpMembers.forEach(m => {
-                initialData[m.id] = { present: false, participated: false, studies: false, guests: 0 };
-            });
-            setAttendanceData(initialData);
+                    const allPairs = await backend.getMissionaryPairs();
+                    const gpPairs = allPairs.filter(p => p.gpId === gp.id);
+                    setPairs(gpPairs);
 
-            const initialPairData: any = {};
-            mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id).forEach(p => {
-                initialPairData[p.id] = 0;
-            });
-            setPairStudiesData(initialPairData);
-        }
-    }, [gp]);
+                    // Initialize form data
+                    const initialData: any = {};
+                    gpMembers.forEach(m => {
+                        initialData[m.id] = { present: false, participated: false, studies: false, guests: 0 };
+                    });
+                    setAttendanceData(initialData);
+
+                    const initialPairData: any = {};
+                    gpPairs.forEach(p => {
+                        initialPairData[p.id] = 0;
+                    });
+                    setPairStudiesData(initialPairData);
+                } catch (e) { console.error(e) }
+            }
+        };
+        loadCombine();
+    }, [gp, backend]);
 
     const handleMemberChange = (memberId: string, field: string, value: any) => {
         setAttendanceData(prev => ({
@@ -53,7 +62,7 @@ const AttendanceView: React.FC = () => {
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // Calculate summaries
@@ -62,7 +71,6 @@ const AttendanceView: React.FC = () => {
         const totalStudies = Object.values(pairStudiesData).reduce((sum, val) => sum + Number(val), 0);
 
         const newReport = {
-            id: Math.random().toString(36).substr(2, 9),
             gpId: gp.id,
             date: reportDate,
             attendance: Object.entries(attendanceData).map(([memberId, data]) => ({
@@ -85,12 +93,14 @@ const AttendanceView: React.FC = () => {
             }
         };
 
-        const reports = mockBackend.getReports();
-        reports.push(newReport);
-        localStorage.setItem('app_reports', JSON.stringify(reports));
-
-        showToast('Reporte enviado con éxito', 'success');
-        navigate('/leader/reports');
+        try {
+            await backend.createReport(newReport);
+            showToast('Reporte enviado con éxito', 'success');
+            navigate('/leader/reports');
+        } catch (error) {
+            console.error("Error creating report:", error);
+            showToast('Error al enviar el reporte', 'error');
+        }
     };
 
     const getMemberName = (id: string) => {

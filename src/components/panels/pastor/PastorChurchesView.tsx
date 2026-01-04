@@ -1,34 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, Church } from '../../../types';
 import { Users, Heart, Home } from 'lucide-react';
 
 const PastorChurchesView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
+    const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [stats, setStats] = useState<Record<string, { gps: number, members: number, pairs: number }>>({});
 
     useEffect(() => {
-        if (district) {
-            const districtChurches = mockBackend.getChurches().filter(c => c.districtId === district.id);
-            setChurches(districtChurches);
+        const loadChurchesData = async () => {
+            if (district) {
+                try {
+                    const allChurches = await backend.getChurches();
+                    const districtChurches = allChurches.filter(c => c.districtId === district.id);
+                    setChurches(districtChurches);
 
-            const newStats: any = {};
-            districtChurches.forEach(church => {
-                const gps = mockBackend.getGPs().filter(g => g.churchId === church.id);
-                const members = mockBackend.getMembers().filter(m => gps.some(g => g.id === m.gpId));
-                const pairs = (mockBackend.getMissionaryPairs?.() || []).filter(p => gps.some(g => g.id === p.gpId));
+                    const newStats: any = {};
 
-                newStats[church.id] = {
-                    gps: gps.length,
-                    members: members.length,
-                    pairs: pairs.length
-                };
-            });
-            setStats(newStats);
-        }
-    }, [district]);
+                    const allGPs = await backend.getGPs();
+                    const allMembers = await backend.getMembers();
+                    const allPairs = await backend.getMissionaryPairs();
+
+                    districtChurches.forEach(church => {
+                        const gps = allGPs.filter(g => g.churchId === church.id);
+                        const members = allMembers.filter(m => gps.some(g => g.id === m.gpId));
+                        const pairs = allPairs.filter(p => gps.some(g => g.id === p.gpId));
+
+                        newStats[church.id] = {
+                            gps: gps.length,
+                            members: members.length,
+                            pairs: pairs.length
+                        };
+                    });
+                    setStats(newStats);
+                } catch (error) {
+                    console.error("Error loading churches data:", error);
+                }
+            }
+        };
+        loadChurchesData();
+    }, [district, backend]);
 
     return (
         <div className="space-y-6">

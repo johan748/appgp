@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Association, Zone } from '../../../types';
 import { MapPin, Users, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext';
 const AssociationZonesView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [zones, setZones] = useState<Zone[]>([]);
     const [stats, setStats] = useState<Record<string, { districts: number, churches: number }>>({});
 
@@ -22,31 +23,34 @@ const AssociationZonesView: React.FC = () => {
     });
 
     useEffect(() => {
-        mockBackend.cleanupDuplicates();
+        const loadData = async () => {
+            if (association) {
+                try {
+                    // Robustly filter zones: must match association AND have a valid ID
+                    const allZones = await backend.getZones();
+                    const assocZones = allZones.filter(z => z && z.id && z.associationId === association.id);
+                    setZones(assocZones);
+
+                    const newStats: any = {};
+                    const allDistricts = await backend.getDistricts();
+                    const allChurches = await backend.getChurches();
+
+                    assocZones.forEach(zone => {
+                        const districts = allDistricts.filter(d => d.zoneId === zone.id);
+                        const zoneChurches = allChurches.filter(c => districts.some(d => d.id === c.districtId));
+
+                        newStats[zone.id] = {
+                            districts: districts.length,
+                            churches: zoneChurches.length
+                        };
+                    });
+                    setStats(newStats);
+                } catch (error) { console.error(error); }
+            }
+        };
+        // mockBackend.cleanupDuplicates(); // Not usually part of async flow unless exposed
         loadData();
-    }, [association]);
-
-    const loadData = () => {
-        if (association) {
-            // Robustly filter zones: must match association AND have a valid ID
-            const assocZones = mockBackend.getZones()
-                .filter(z => z && z.id && z.associationId === association.id);
-            setZones(assocZones);
-
-            const newStats: any = {};
-            assocZones.forEach(zone => {
-                const districts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-                const allChurches = mockBackend.getChurches();
-                const zoneChurches = allChurches.filter(c => districts.some(d => d.id === c.districtId));
-
-                newStats[zone.id] = {
-                    districts: districts.length,
-                    churches: zoneChurches.length
-                };
-            });
-            setStats(newStats);
-        }
-    };
+    }, [association, backend]);
 
     const handleCreate = () => {
         setEditingZone(null);
@@ -54,44 +58,46 @@ const AssociationZonesView: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleEdit = (zone: Zone) => {
+    const handleEdit = async (zone: Zone) => {
         setEditingZone(zone);
 
-        // Find existing director user
-        const users = mockBackend.getUsers();
-        const directorUser = users.find(u => u.relatedEntityId === zone.id && u.role === 'DIRECTOR_ZONA');
+        try {
+            // Find existing director user
+            const users = await backend.getUsers();
+            const directorUser = users.find(u => u.relatedEntityId === zone.id && u.role === 'DIRECTOR_ZONA');
 
-        setFormData({
-            name: zone.name,
-            directorName: directorUser ? directorUser.name : '',
-            username: directorUser ? directorUser.username : '',
-            password: '' // Keep empty for security unless changing
-        });
-        setIsModalOpen(true);
+            setFormData({
+                name: zone.name,
+                directorName: directorUser ? directorUser.name : '',
+                username: directorUser ? directorUser.username : '',
+                password: ''
+            });
+            setIsModalOpen(true);
+        } catch (e) { console.error(e); }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         try {
             if (editingZone) {
                 // Update Zone
                 const updatedZone = { ...editingZone, name: formData.name };
-                mockBackend.updateZone(updatedZone);
+                await backend.updateZone(updatedZone);
 
                 // Update Director User
                 if (formData.username) {
-                    const users = mockBackend.getUsers();
+                    const users = await backend.getUsers();
                     const directorUser = users.find(u => u.relatedEntityId === updatedZone.id && u.role === 'DIRECTOR_ZONA');
 
                     if (directorUser) {
                         const updatedUser = { ...directorUser, name: formData.directorName, username: formData.username };
                         if (formData.password) updatedUser.password = formData.password;
-                        mockBackend.updateUser(updatedUser);
+                        await backend.updateUser(updatedUser);
                     } else {
-                        // Create if missing (e.g. was deleted manually or data inconsistency)
+                        // Create if missing
                         try {
-                            mockBackend.createUser({
+                            await backend.createUser({
                                 username: formData.username,
                                 password: formData.password || 'password',
                                 role: 'DIRECTOR_ZONA',
@@ -100,7 +106,6 @@ const AssociationZonesView: React.FC = () => {
                             });
                         } catch (e) {
                             console.error("Error updating/creating user for zone", e);
-                            // It might exist but not linked correctly? Ignore for now or alert?
                         }
                     }
                 }
@@ -114,9 +119,10 @@ const AssociationZonesView: React.FC = () => {
                     throw new Error(`Ya existe una zona con el nombre "${formData.name}".`);
                 }
 
-                // 1b. Validate Username uniqueness first to avoid partial state
+                // 1b. Validate Username uniqueness first
                 if (formData.username) {
-                    const existingUser = mockBackend.getUsers().find(u => u.username === formData.username);
+                    const users = await backend.getUsers();
+                    const existingUser = users.find(u => u.username === formData.username);
                     if (existingUser) {
                         throw new Error(`El nombre de usuario "${formData.username}" ya está en uso. Por favor elija otro.`);
                     }
@@ -124,11 +130,11 @@ const AssociationZonesView: React.FC = () => {
 
                 const zoneId = 'zone-' + Math.random().toString(36).substr(2, 9);
 
-                // 2. Create Director User FIRST (so we can get the ID)
+                // 2. Create Director User FIRST
                 let directorUserId = 'pending';
                 if (formData.username && formData.password) {
                     try {
-                        const newUser = mockBackend.createUser({
+                        const newUser = await backend.createUser({
                             username: formData.username,
                             password: formData.password,
                             role: 'DIRECTOR_ZONA',
@@ -151,30 +157,38 @@ const AssociationZonesView: React.FC = () => {
                 };
 
                 try {
-                    mockBackend.addZone(newZone);
+                    await backend.addZone(newZone);
                 } catch (zoneError: any) {
                     // Rollback: Delete the user if zone creation fails
                     if (directorUserId !== 'pending') {
-                        const users = mockBackend.getUsers().filter(u => u.id !== directorUserId);
-                        localStorage.setItem('app_users', JSON.stringify(users));
+                        // Note: mock backend implies direct delete. Real backend should have deleteUser.
+                        // Check interface for deleteUser.
+                        // Interface has deleteUser(id: string).
+                        await backend.deleteUser(directorUserId);
                     }
                     throw new Error('Error al crear la zona: ' + zoneError.message);
                 }
             }
 
             setIsModalOpen(false);
-            loadData();
+            // Refresh
+            const allZones = await backend.getZones();
+            setZones(allZones.filter(z => z && z.id && z.associationId === association.id));
+
             showToast(editingZone ? 'Zona actualizada exitosamente' : 'Zona guardada exitosamente', 'success');
         } catch (error: any) {
             showToast(error.message, 'error');
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('¿Está seguro de eliminar esta zona? Esta acción no se puede deshacer.')) {
             try {
-                mockBackend.deleteZone(id);
-                loadData();
+                await backend.deleteZone(id);
+                // Refresh
+                const allZones = await backend.getZones();
+                setZones(allZones.filter(z => z && z.id && z.associationId === association.id));
+
                 showToast('Zona eliminada correctamente', 'success');
             } catch (e: any) {
                 showToast('Error al eliminar la zona: ' + e.message, 'error');

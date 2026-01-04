@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District } from '../../../types';
 import { BarChart } from 'lucide-react';
 
@@ -18,6 +18,7 @@ interface ChurchGPReport {
 
 const PastorGlobalReportsView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
+    const { backend } = useBackend();
     const [reportData, setReportData] = useState<ChurchGPReport[]>([]);
     const [filters, setFilters] = useState({
         startMonth: '01',
@@ -27,50 +28,59 @@ const PastorGlobalReportsView: React.FC = () => {
     });
 
     useEffect(() => {
-        if (district) {
-            const churches = mockBackend.getChurches().filter(c => c.districtId === district.id);
-            const allReports: ChurchGPReport[] = [];
+        const loadGlobalReports = async () => {
+            if (district) {
+                try {
+                    const allChurches = await backend.getChurches();
+                    const churches = allChurches.filter(c => c.districtId === district.id);
+                    const allReportsList = await backend.getReports();
+                    const allGPs = await backend.getGPs();
 
-            // Build date range
-            const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
-            const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
-            endDate.setMonth(endDate.getMonth() + 1); // End of the month
+                    const reportsData: ChurchGPReport[] = [];
 
-            churches.forEach(church => {
-                const gps = mockBackend.getGPs().filter(g => g.churchId === church.id);
+                    // Build date range
+                    const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
+                    const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
+                    endDate.setMonth(endDate.getMonth() + 1); // End of the month
 
-                gps.forEach(gp => {
-                    const allGPReports = mockBackend.getReports().filter(r => r.gpId === gp.id);
+                    churches.forEach(church => {
+                        const gps = allGPs.filter(g => g.churchId === church.id);
 
-                    // Filter reports by date range
-                    const reports = allGPReports.filter(r => {
-                        const reportDate = new Date(r.date);
-                        return reportDate >= startDate && reportDate < endDate;
+                        gps.forEach(gp => {
+                            const allGPReports = allReportsList.filter(r => r.gpId === gp.id);
+
+                            // Filter reports by date range
+                            const reports = allGPReports.filter(r => {
+                                const reportDate = new Date(r.date);
+                                return reportDate >= startDate && reportDate < endDate;
+                            });
+
+                            // Aggregate data from filtered reports for this GP
+                            const attendance = reports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0);
+                            const studies = reports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
+                            const guests = reports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
+                            const baptisms = reports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
+
+                            reportsData.push({
+                                churchId: church.id,
+                                churchName: church.name,
+                                gpId: gp.id,
+                                gpName: gp.name,
+                                attendance,
+                                studies,
+                                guests,
+                                baptisms,
+                                status: reports.length > 0 ? 'Activo' : 'Inactivo'
+                            });
+                        });
                     });
 
-                    // Aggregate data from filtered reports for this GP
-                    const attendance = reports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0);
-                    const studies = reports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
-                    const guests = reports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
-                    const baptisms = reports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
-
-                    allReports.push({
-                        churchId: church.id,
-                        churchName: church.name,
-                        gpId: gp.id,
-                        gpName: gp.name,
-                        attendance,
-                        studies,
-                        guests,
-                        baptisms,
-                        status: reports.length > 0 ? 'Activo' : 'Inactivo'
-                    });
-                });
-            });
-
-            setReportData(allReports);
-        }
-    }, [district, filters]);
+                    setReportData(reportsData);
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadGlobalReports();
+    }, [district, filters, backend]);
 
     const months = [
         { value: '01', label: 'Enero' },

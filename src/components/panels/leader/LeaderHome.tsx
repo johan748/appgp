@@ -1,19 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Calendar, Target, Users, Heart, ClipboardList, UserPlus, UserCheck, Award } from 'lucide-react';
 
 const LeaderHome: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const navigate = useNavigate();
     const [members, setMembers] = useState<Member[]>([]);
 
     useEffect(() => {
-        if (gp) {
-            setMembers(mockBackend.getMembersByGP(gp.id));
-        }
-    }, [gp]);
+        const loadMembers = async () => {
+            if (gp) {
+                try {
+                    const data = await backend.getMembersByGP(gp.id);
+                    setMembers(data);
+                } catch (error) {
+                    console.error("Error loading members:", error);
+                }
+            }
+        };
+        loadMembers();
+    }, [gp, backend]);
 
     const getBirthdays = () => {
         const currentMonth = new Date().getMonth();

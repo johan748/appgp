@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { backend } from '../../../services';
+import { useBackend } from '../../../context/BackendContext';
 import { useToast } from '../../../context/ToastContext';
 import { SmallGroup, Member } from '../../../types';
 import { Save } from 'lucide-react';
@@ -9,6 +9,7 @@ const AddMemberView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -36,8 +37,7 @@ const AddMemberView: React.FC = () => {
                     friendProgress: {}
                 };
 
-                const currentBackend = await backend();
-                await currentBackend.addMember(newMember);
+                await backend.addMember(newMember);
                 showToast('Miembro agregado exitosamente', 'success');
                 navigate('/leader/members');
             } catch (error) {

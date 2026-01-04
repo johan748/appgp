@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../context/ToastContext';
-import { backend } from '../../../services';
+import { useBackend } from '../../../context/BackendContext';
 import { User, Role } from '../../../types';
 import { Users, Search, RefreshCw, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 
 const AdminUsersView: React.FC = () => {
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,8 +24,7 @@ const AdminUsersView: React.FC = () => {
     const loadUsers = async () => {
         try {
             setLoading(true);
-            const currentBackend = await backend();
-            const usersData = await currentBackend.getUsers();
+            const usersData = await backend.getUsers();
             setUsers(usersData);
         } catch (error) {
             console.error('Error loading users:', error);
@@ -36,7 +36,7 @@ const AdminUsersView: React.FC = () => {
 
     useEffect(() => {
         loadUsers();
-    }, []);
+    }, [backend]);
 
     const refresh = () => loadUsers();
 
@@ -91,9 +91,8 @@ const AdminUsersView: React.FC = () => {
     const handleDeleteUser = async (user: User) => {
         if (window.confirm(`¿Está seguro de que desea eliminar al usuario "${user.username}"?`)) {
             try {
-                const currentBackend = await backend();
-                if ((currentBackend as any).deleteUser) {
-                    await (currentBackend as any).deleteUser(user.id);
+                if ((backend as any).deleteUser) {
+                    await (backend as any).deleteUser(user.id);
                     showToast('Usuario eliminado', 'success');
                     refresh();
                 } else {
@@ -108,7 +107,6 @@ const AdminUsersView: React.FC = () => {
 
     const handleSaveUser = async () => {
         try {
-            const currentBackend = await backend();
             if (editingUser) {
                 // Update existing user
                 const updatedUser = {
@@ -122,11 +120,11 @@ const AdminUsersView: React.FC = () => {
                 if (formData.password) {
                     updatedUser.password = formData.password;
                 }
-                await currentBackend.updateUser(updatedUser);
+                await backend.updateUser(updatedUser);
                 showToast('Usuario actualizado', 'success');
             } else {
                 // Create new user
-                await currentBackend.createUser({
+                await backend.createUser({
                     username: formData.username,
                     password: formData.password,
                     name: formData.name,
@@ -148,9 +146,8 @@ const AdminUsersView: React.FC = () => {
         const newPass = prompt(`Ingrese nueva contraseña para ${u.username}:`);
         if (newPass) {
             try {
-                const currentBackend = await backend();
                 const updated = { ...u, password: newPass };
-                await currentBackend.updateUser(updated);
+                await backend.updateUser(updated);
                 showToast('Contraseña actualizada', 'success');
                 refresh();
             } catch (error) {

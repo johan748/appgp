@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Zone } from '../../../types';
 import { ArrowLeft, Home, MapPin, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 
@@ -9,14 +9,21 @@ const ZoneLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { backend } = useBackend();
     const [zone, setZone] = useState<Zone | null>(null);
 
     useEffect(() => {
-        if (user && user.relatedEntityId) {
-            const zoneData = mockBackend.getZones().find(z => z.id === user.relatedEntityId);
-            setZone(zoneData || null);
-        }
-    }, [user]);
+        const loadZone = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const zones = await backend.getZones();
+                    const zoneData = zones.find(z => z.id === user.relatedEntityId);
+                    setZone(zoneData || null);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadZone();
+    }, [user, backend]);
 
     const getWelcomeMessage = () => {
         return `Bienvenido Director ${user?.name}`;

@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Church, District, SmallGroup } from '../../../types';
 import { Settings, ArrowLeft } from 'lucide-react';
 
 const DirectorLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const navigate = useNavigate();
     const location = useLocation();
     const [church, setChurch] = useState<Church | null>(null);
@@ -23,19 +24,31 @@ const DirectorLayout: React.FC = () => {
     });
 
     useEffect(() => {
-        if (user && user.relatedEntityId) {
-            const churchData = mockBackend.getChurches().find(c => c.id === user.relatedEntityId);
-            if (churchData) {
-                setChurch(churchData);
-                const districtData = mockBackend.getDistricts().find(d => d.id === churchData.districtId);
-                setDistrict(districtData || null);
+        const loadDirectorData = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const allChurches = await backend.getChurches();
+                    const churchData = allChurches.find(c => c.id === user.relatedEntityId);
 
-                // Load GPs for config
-                const churchGps = mockBackend.getGPs().filter(g => g.churchId === churchData.id);
-                setGps(churchGps);
+                    if (churchData) {
+                        setChurch(churchData);
+
+                        const allDistricts = await backend.getDistricts();
+                        const districtData = allDistricts.find(d => d.id === churchData.districtId);
+                        setDistrict(districtData || null);
+
+                        // Load GPs for config
+                        const allGPs = await backend.getGPs();
+                        const churchGps = allGPs.filter(g => g.churchId === churchData.id);
+                        setGps(churchGps);
+                    }
+                } catch (error) {
+                    console.error("Error loading director data:", error);
+                }
             }
-        }
-    }, [user]);
+        };
+        loadDirectorData();
+    }, [user, backend]);
 
     const handleGpSelect = (gpId: string) => {
         setSelectedGpId(gpId);
@@ -51,18 +64,22 @@ const DirectorLayout: React.FC = () => {
         }
     };
 
-    const handleSaveConfig = (e: React.FormEvent) => {
+    const handleSaveConfig = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedGpId) {
             const gp = gps.find(g => g.id === selectedGpId);
             if (gp) {
                 const updatedGp = { ...gp, ...configForm };
-                mockBackend.updateGP(updatedGp);
-
-                // Update local state
-                setGps(gps.map(g => g.id === selectedGpId ? updatedGp : g));
-                showToast('Configuración del GP actualizada', 'success');
-                setIsConfigOpen(false);
+                try {
+                    await backend.updateGP(updatedGp);
+                    // Update local state
+                    setGps(gps.map(g => g.id === selectedGpId ? updatedGp : g));
+                    showToast('Configuración del GP actualizada', 'success');
+                    setIsConfigOpen(false);
+                } catch (error) {
+                    console.error("Error updating GP config:", error);
+                    showToast('Error al actualizar configuración', 'error');
+                }
             }
         }
     };

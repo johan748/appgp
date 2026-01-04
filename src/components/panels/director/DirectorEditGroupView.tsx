@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Church, SmallGroup } from '../../../types';
 import { Save, Trash2 } from 'lucide-react';
 
@@ -9,16 +9,23 @@ const DirectorEditGroupView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [gps, setGps] = useState<SmallGroup[]>([]);
     const [selectedGpId, setSelectedGpId] = useState('');
 
     const [formData, setFormData] = useState<SmallGroup | null>(null);
 
     useEffect(() => {
-        if (church) {
-            setGps(mockBackend.getGPs().filter(g => g.churchId === church.id));
-        }
-    }, [church]);
+        const loadGPs = async () => {
+            if (church) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    setGps(allGPs.filter(g => g.churchId === church.id));
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadGPs();
+    }, [church, backend]);
 
     const handleGpSelect = (id: string) => {
         setSelectedGpId(id);
@@ -43,12 +50,17 @@ const DirectorEditGroupView: React.FC = () => {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData) {
-            mockBackend.updateGP(formData);
-            showToast('Grupo actualizado exitosamente', 'success');
-            navigate('/director/groups');
+            try {
+                await backend.updateGP(formData);
+                showToast('Grupo actualizado exitosamente', 'success');
+                navigate('/director/groups');
+            } catch (error) {
+                console.error("Error updating GP:", error);
+                showToast('Error al actualizar grupo', 'error');
+            }
         }
     };
 

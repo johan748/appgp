@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, WeeklyReport, Member, MissionaryPair } from '../../../types';
 import { Save, ArrowLeft } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -10,21 +10,33 @@ const EditReportView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [report, setReport] = useState<WeeklyReport | null>(null);
     const [members, setMembers] = useState<Member[]>([]);
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
 
     useEffect(() => {
-        if (gp && id) {
-            setMembers(mockBackend.getMembersByGP(gp.id));
-            setPairs(mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id));
-            const allReports = mockBackend.getReports();
-            const found = allReports.find(r => r.id === id);
-            if (found) {
-                setReport(JSON.parse(JSON.stringify(found))); // Deep copy
+        const loadData = async () => {
+            if (gp && id) {
+                try {
+                    const gpMembers = await backend.getMembersByGP(gp.id);
+                    setMembers(gpMembers);
+
+                    const allPairs = await backend.getMissionaryPairs();
+                    setPairs(allPairs.filter(p => p.gpId === gp.id));
+
+                    const allReports = await backend.getReports();
+                    const found = allReports.find(r => r.id === id);
+                    if (found) {
+                        setReport(JSON.parse(JSON.stringify(found))); // Deep copy
+                    }
+                } catch (error) {
+                    console.error("Error loading report data:", error);
+                }
             }
-        }
-    }, [gp, id]);
+        };
+        loadData();
+    }, [gp, id, backend]);
 
     const handleAttendanceChange = (idx: number, field: string, value: any) => {
         if (!report) return;
@@ -49,11 +61,16 @@ const EditReportView: React.FC = () => {
         setReport({ ...report, missionaryPairsStats: newStats });
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (report) {
-            mockBackend.updateReport(report);
-            showToast('Reporte actualizado exitosamente', 'success');
-            navigate('/leader/reports');
+            try {
+                await backend.updateReport(report);
+                showToast('Reporte actualizado exitosamente', 'success');
+                navigate('/leader/reports');
+            } catch (error) {
+                console.error("Error updating report:", error);
+                showToast('Error al actualizar reporte', 'error');
+            }
         }
     };
 

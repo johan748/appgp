@@ -1,39 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member, MissionaryPair } from '../../../types';
 import { Plus, Trash2, Users } from 'lucide-react';
 
 const MissionaryPairsView: React.FC = () => {
     const { gp } = useOutletContext<{ gp: SmallGroup }>();
+    const { backend } = useBackend();
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [selectedMember1, setSelectedMember1] = useState('');
     const [selectedMember2, setSelectedMember2] = useState('');
+    const [studiesMap, setStudiesMap] = useState<Record<string, number>>({});
 
     useEffect(() => {
-        if (gp) {
-            // Load members first
-            const gpMembers = mockBackend.getMembersByGP(gp.id);
-            setMembers(gpMembers);
+        const loadData = async () => {
+            if (gp) {
+                // Load members first
+                const gpMembers = await backend.getMembersByGP(gp.id);
+                setMembers(gpMembers);
 
-            // Then load pairs
-            const gpPairs = mockBackend.getMissionaryPairs().filter(p => p.gpId === gp.id);
-            setPairs(gpPairs);
-        }
-    }, [gp]);
+                // Then load pairs
+                const allPairs = await backend.getMissionaryPairs();
+                const gpPairs = allPairs.filter(p => p.gpId === gp.id);
+                setPairs(gpPairs);
 
-    const handleDeletePair = (pairId: string) => {
+                // Load reports to calc studies
+                const reports = await backend.getReports();
+                const gpReports = reports.filter(r => r.gpId === gp.id);
+
+                const newStudiesMap: Record<string, number> = {};
+                gpPairs.forEach(pair => {
+                    newStudiesMap[pair.id] = gpReports.reduce((total, report) => {
+                        const pairStat = report.missionaryPairsStats.find((stat: { pairId: string; studiesGiven: number }) => stat.pairId === pair.id);
+                        return total + (pairStat ? pairStat.studiesGiven : 0);
+                    }, 0);
+                });
+                setStudiesMap(newStudiesMap);
+            }
+        };
+        loadData();
+    }, [gp, backend]);
+
+    const handleDeletePair = async (pairId: string) => {
         if (confirm('¿Estás seguro de eliminar esta pareja misionera?')) {
-            const allPairs = mockBackend.getMissionaryPairs();
-            const filtered = allPairs.filter(p => p.id !== pairId);
-            localStorage.setItem('app_pairs', JSON.stringify(filtered));
-            setPairs(pairs.filter(p => p.id !== pairId));
+            try {
+                await backend.deleteMissionaryPair(pairId);
+                setPairs(pairs.filter(p => p.id !== pairId));
+            } catch (error) {
+                console.error("Error deleting pair:", error);
+            }
         }
     };
 
-    const handleCreatePair = (e: React.FormEvent) => {
+    const handleCreatePair = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedMember1 && selectedMember2 && selectedMember1 !== selectedMember2) {
             const newPair: MissionaryPair = {
@@ -45,14 +66,15 @@ const MissionaryPairsView: React.FC = () => {
                 createdAt: new Date().toISOString()
             };
 
-            const currentPairs = mockBackend.getMissionaryPairs();
-            currentPairs.push(newPair);
-            localStorage.setItem('app_pairs', JSON.stringify(currentPairs));
-
-            setPairs([...pairs, newPair]);
-            setIsCreating(false);
-            setSelectedMember1('');
-            setSelectedMember2('');
+            try {
+                await backend.createMissionaryPair(newPair);
+                setPairs([...pairs, newPair]);
+                setIsCreating(false);
+                setSelectedMember1('');
+                setSelectedMember2('');
+            } catch (error) {
+                console.error("Error creating pair:", error);
+            }
         }
     };
 
@@ -62,11 +84,7 @@ const MissionaryPairsView: React.FC = () => {
     };
 
     const getStudiesGiven = (pairId: string) => {
-        const reports = mockBackend.getReports().filter(r => r.gpId === gp.id);
-        return reports.reduce((total, report) => {
-            const pairStat = report.missionaryPairsStats.find((stat: { pairId: string; studiesGiven: number }) => stat.pairId === pairId);
-            return total + (pairStat ? pairStat.studiesGiven : 0);
-        }, 0);
+        return studiesMap[pairId] || 0;
     };
 
     return (

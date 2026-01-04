@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Church, SmallGroup, WeeklyReport, Member } from '../../../types';
 import { Check, X } from 'lucide-react';
 
 const DirectorReportsView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
+    const { backend } = useBackend();
     const [gps, setGps] = useState<SmallGroup[]>([]);
     const [selectedGpId, setSelectedGpId] = useState('');
     const [reports, setReports] = useState<WeeklyReport[]>([]);
@@ -14,20 +15,35 @@ const DirectorReportsView: React.FC = () => {
     const [members, setMembers] = useState<Member[]>([]);
 
     useEffect(() => {
-        if (church) {
-            setGps(mockBackend.getGPs().filter(g => g.churchId === church.id));
-        }
-    }, [church]);
+        const loadGps = async () => {
+            if (church) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    setGps(allGPs.filter(g => g.churchId === church.id));
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadGps();
+    }, [church, backend]);
 
     useEffect(() => {
-        if (selectedGpId) {
-            const gpReports = mockBackend.getReports().filter(r => r.gpId === selectedGpId);
-            setReports(gpReports);
-            setMembers(mockBackend.getMembersByGP(selectedGpId));
-            setSelectedDate('');
-            setCurrentReport(null);
-        }
-    }, [selectedGpId]);
+        const loadReportData = async () => {
+            if (selectedGpId) {
+                try {
+                    const allReports = await backend.getReports();
+                    const gpReports = allReports.filter(r => r.gpId === selectedGpId);
+                    setReports(gpReports);
+
+                    const gpMembers = await backend.getMembersByGP(selectedGpId);
+                    setMembers(gpMembers);
+
+                    setSelectedDate('');
+                    setCurrentReport(null);
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadReportData();
+    }, [selectedGpId, backend]);
 
     useEffect(() => {
         if (selectedDate) {

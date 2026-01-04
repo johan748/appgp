@@ -2,21 +2,29 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, FileText, LogOut, Network } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
+import { useBackend } from '../../../context/BackendContext';
 import { Union } from '../../../types';
-import { mockBackend } from '../../../services/mockBackend';
 
 const UnionLayout: React.FC = () => {
     const { user, logout } = useAuth();
+    const { backend } = useBackend();
     const navigate = useNavigate();
     const location = useLocation();
+    const [union, setUnion] = React.useState<Union | null>(null);
 
     // Fetch Union data based on user
-    const union = React.useMemo(() => {
-        if (user?.role === 'UNION' && user.relatedEntityId) {
-            return mockBackend.getUnionById(user.relatedEntityId);
-        }
-        return null;
-    }, [user]);
+    React.useEffect(() => {
+        const loadUnion = async () => {
+            if (user?.role === 'UNION' && user.relatedEntityId) {
+                try {
+                    const u = await backend.getUnionById(user.relatedEntityId);
+                    setUnion(u || null);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadUnion();
+    }, [user, backend]);
 
     if (!union) return <div>Cargando...</div>;
 

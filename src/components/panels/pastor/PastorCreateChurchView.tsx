@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, Church, User } from '../../../types';
 import { Save } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -9,6 +9,7 @@ const PastorCreateChurchView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -18,7 +19,7 @@ const PastorCreateChurchView: React.FC = () => {
         password: ''
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // 1. Create the Church
@@ -39,17 +40,31 @@ const PastorCreateChurchView: React.FC = () => {
             name: formData.directorName
         };
 
-        // 3. Save everything
-        const churches = mockBackend.getChurches();
-        churches.push(newChurch);
-        localStorage.setItem('app_churches', JSON.stringify(churches));
+        try {
+            // 3. Save everything
+            await backend.addChurch(newChurch);
+            // Warning: createUser usually excludes ID in interface, but our local impl might handle it.
+            // mockBackendAsync.createUser takes Omit<User, 'id'>.
+            // Let's adjust to match interface expectation if strict, or use the one that generates ID.
+            // In my IBackendService, createUser takes Omit<User, 'id'> and returns Promise<User>.
+            // So we should NOT pass ID.
 
-        const users = mockBackend.getUsers();
-        users.push(newUser);
-        localStorage.setItem('app_users', JSON.stringify(users));
+            const userToCreate: Omit<User, 'id'> = {
+                username: formData.username,
+                password: formData.password,
+                role: 'DIRECTOR_MP',
+                relatedEntityId: newChurch.id,
+                name: formData.directorName
+            };
 
-        showToast('Iglesia creada exitosamente', 'success');
-        navigate('/pastor/churches');
+            await backend.createUser(userToCreate);
+
+            showToast('Iglesia creada exitosamente', 'success');
+            navigate('/pastor/churches');
+        } catch (error) {
+            console.error(error);
+            showToast('Error al crear iglesia', 'error');
+        }
     };
 
     return (

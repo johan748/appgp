@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { BackendProvider } from './context/BackendContext';
 import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 
@@ -83,118 +84,120 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
 const App: React.FC = () => {
     return (
         <ToastProvider>
-            <AuthProvider>
-                <Router>
-                    <Routes>
-                        <Route path="/login" element={<LoginPage />} />
+            <BackendProvider>
+                <AuthProvider>
+                    <Router>
+                        <Routes>
+                            <Route path="/login" element={<LoginPage />} />
 
-                        {/* Protected Routes */}
-                        <Route path="/leader" element={
-                            <ProtectedRoute allowedRoles={['LIDER_GP']}>
-                                <LeaderLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<LeaderHome />} />
-                            <Route path="members" element={<MembersView />} />
-                            <Route path="pairs" element={<MissionaryPairsView />} />
-                            <Route path="attendance" element={<AttendanceView />} />
-                            <Route path="reports" element={<ReportsView />} />
-                            <Route path="add-member" element={<AddMemberView />} />
-                            <Route path="edit-member/:id" element={<EditMemberView />} />
-                            <Route path="edit-report/:id" element={<EditReportView />} />
-                            <Route path="friends" element={<FriendsView />} />
-                            <Route path="leadership" element={<LeadershipView />} />
-                        </Route>
+                            {/* Protected Routes */}
+                            <Route path="/leader" element={
+                                <ProtectedRoute allowedRoles={['LIDER_GP']}>
+                                    <LeaderLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<LeaderHome />} />
+                                <Route path="members" element={<MembersView />} />
+                                <Route path="pairs" element={<MissionaryPairsView />} />
+                                <Route path="attendance" element={<AttendanceView />} />
+                                <Route path="reports" element={<ReportsView />} />
+                                <Route path="add-member" element={<AddMemberView />} />
+                                <Route path="edit-member/:id" element={<EditMemberView />} />
+                                <Route path="edit-report/:id" element={<EditReportView />} />
+                                <Route path="friends" element={<FriendsView />} />
+                                <Route path="leadership" element={<LeadershipView />} />
+                            </Route>
 
-                        <Route path="/director" element={
-                            <ProtectedRoute allowedRoles={['DIRECTOR_MP']}>
-                                <DirectorLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<DirectorHome />} />
-                            <Route path="groups" element={<DirectorGroupsView />} />
-                            <Route path="roles" element={<DirectorRolesView />} />
-                            <Route path="create-group" element={<DirectorCreateGroupView />} />
-                            <Route path="edit-group" element={<DirectorEditGroupView />} />
-                            <Route path="reports" element={<DirectorReportsView />} />
-                            <Route path="top" element={<DirectorTopView />} />
-                        </Route>
+                            <Route path="/director" element={
+                                <ProtectedRoute allowedRoles={['DIRECTOR_MP']}>
+                                    <DirectorLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<DirectorHome />} />
+                                <Route path="groups" element={<DirectorGroupsView />} />
+                                <Route path="roles" element={<DirectorRolesView />} />
+                                <Route path="create-group" element={<DirectorCreateGroupView />} />
+                                <Route path="edit-group" element={<DirectorEditGroupView />} />
+                                <Route path="reports" element={<DirectorReportsView />} />
+                                <Route path="top" element={<DirectorTopView />} />
+                            </Route>
 
-                        <Route path="/pastor" element={
-                            <ProtectedRoute allowedRoles={['PASTOR']}>
-                                <PastorLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<PastorHome />} />
-                            <Route path="churches" element={<PastorChurchesView />} />
-                            <Route path="create-church" element={<PastorCreateChurchView />} />
-                            <Route path="edit-church/:id" element={<PastorEditChurchView />} />
-                            <Route path="alerts" element={<PastorAlertsView />} />
-                            <Route path="auto-reports" element={<PastorAutoReportsView />} />
-                            <Route path="create-group" element={<PastorCreateGroupView />} />
-                            <Route path="edit-group" element={<PastorEditGroupView />} />
-                            <Route path="roles" element={<PastorRolesView />} />
-                            <Route path="reports" element={<PastorGPReportsView />} />
-                            <Route path="top" element={<PastorTopView />} />
-                            <Route path="global-reports" element={<PastorGlobalReportsView />} />
-                            <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
-                        </Route>
+                            <Route path="/pastor" element={
+                                <ProtectedRoute allowedRoles={['PASTOR']}>
+                                    <PastorLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<PastorHome />} />
+                                <Route path="churches" element={<PastorChurchesView />} />
+                                <Route path="create-church" element={<PastorCreateChurchView />} />
+                                <Route path="edit-church/:id" element={<PastorEditChurchView />} />
+                                <Route path="alerts" element={<PastorAlertsView />} />
+                                <Route path="auto-reports" element={<PastorAutoReportsView />} />
+                                <Route path="create-group" element={<PastorCreateGroupView />} />
+                                <Route path="edit-group" element={<PastorEditGroupView />} />
+                                <Route path="roles" element={<PastorRolesView />} />
+                                <Route path="reports" element={<PastorGPReportsView />} />
+                                <Route path="top" element={<PastorTopView />} />
+                                <Route path="global-reports" element={<PastorGlobalReportsView />} />
+                                <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
+                            </Route>
 
-                        <Route path="/zone" element={
-                            <ProtectedRoute allowedRoles={['DIRECTOR_ZONA']}>
-                                <ZoneLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<ZoneHome />} />
-                            <Route path="districts" element={<ZoneDistrictsView />} />
-                            <Route path="leadership" element={<ZoneLeadershipView />} />
-                            <Route path="stats" element={<ZoneStatsView />} />
-                            <Route path="alerts" element={<ZoneAlertsView />} />
-                            <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
-                        </Route>
+                            <Route path="/zone" element={
+                                <ProtectedRoute allowedRoles={['DIRECTOR_ZONA']}>
+                                    <ZoneLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<ZoneHome />} />
+                                <Route path="districts" element={<ZoneDistrictsView />} />
+                                <Route path="leadership" element={<ZoneLeadershipView />} />
+                                <Route path="stats" element={<ZoneStatsView />} />
+                                <Route path="alerts" element={<ZoneAlertsView />} />
+                                <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
+                            </Route>
 
-                        <Route path="/association" element={
-                            <ProtectedRoute allowedRoles={['ASOCIACION']}>
-                                <AssociationLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<AssociationHome />} />
-                            <Route path="zones" element={<AssociationZonesView />} />
-                            <Route path="districts" element={<AssociationDistrictsView />} />
-                            <Route path="reports" element={<AssociationGlobalReportsView />} />
-                            <Route path="growth" element={<AssociationGrowthView />} />
-                            <Route path="config" element={<AssociationConfigView />} />
-                            <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
-                        </Route>
+                            <Route path="/association" element={
+                                <ProtectedRoute allowedRoles={['ASOCIACION']}>
+                                    <AssociationLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<AssociationHome />} />
+                                <Route path="zones" element={<AssociationZonesView />} />
+                                <Route path="districts" element={<AssociationDistrictsView />} />
+                                <Route path="reports" element={<AssociationGlobalReportsView />} />
+                                <Route path="growth" element={<AssociationGrowthView />} />
+                                <Route path="config" element={<AssociationConfigView />} />
+                                <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
+                            </Route>
 
-                        <Route path="/union" element={
-                            <ProtectedRoute allowedRoles={['UNION']}>
-                                <UnionLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<UnionHome />} />
-                            <Route path="associations" element={<UnionAssociationsView />} />
-                            <Route path="reports" element={<UnionReportsView />} />
-                            <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
-                        </Route>
+                            <Route path="/union" element={
+                                <ProtectedRoute allowedRoles={['UNION']}>
+                                    <UnionLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<UnionHome />} />
+                                <Route path="associations" element={<UnionAssociationsView />} />
+                                <Route path="reports" element={<UnionReportsView />} />
+                                <Route path="*" element={<div className="p-4">Función en desarrollo</div>} />
+                            </Route>
 
-                        <Route path="/admin" element={
-                            <ProtectedRoute allowedRoles={['ADMIN']}>
-                                <AdminLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<AdminHome />} />
-                            <Route path="unions" element={<AdminUnionsView />} />
-                            <Route path="users" element={<AdminUsersView />} />
-                            <Route path="data" element={<AdminDataView />} />
-                            <Route path="config" element={<AdminConfigView />} />
-                        </Route>
+                            <Route path="/admin" element={
+                                <ProtectedRoute allowedRoles={['ADMIN']}>
+                                    <AdminLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<AdminHome />} />
+                                <Route path="unions" element={<AdminUnionsView />} />
+                                <Route path="users" element={<AdminUsersView />} />
+                                <Route path="data" element={<AdminDataView />} />
+                                <Route path="config" element={<AdminConfigView />} />
+                            </Route>
 
-                        {/* Default Redirect */}
-                        <Route path="/" element={<LandingPage />} />
-                    </Routes>
-                </Router>
-            </AuthProvider>
+                            {/* Default Redirect */}
+                            <Route path="/" element={<LandingPage />} />
+                        </Routes>
+                    </Router>
+                </AuthProvider>
+            </BackendProvider>
         </ToastProvider>
     );
 };

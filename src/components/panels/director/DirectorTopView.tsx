@@ -1,60 +1,75 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Church, SmallGroup, MissionaryPair } from '../../../types';
 import { Trophy, TrendingUp } from 'lucide-react';
 
 const DirectorTopView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
+    const { backend } = useBackend();
     const [topPairs, setTopPairs] = useState<{ pair: MissionaryPair, names: string, studies: number }[]>([]);
     const [topGps, setTopGps] = useState<{ gp: SmallGroup, score: number, details: any }[]>([]);
 
     useEffect(() => {
-        if (church) {
-            const churchGps = mockBackend.getGPs().filter(g => g.churchId === church.id);
-            const allPairs = mockBackend.getMissionaryPairs().filter(p => churchGps.some(g => g.id === p.gpId));
-            const allMembers = mockBackend.getMembers();
-            const allReports = mockBackend.getReports();
+        const loadTopData = async () => {
+            if (church) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    const churchGps = allGPs.filter(g => g.churchId === church.id);
 
-            // 1. Top Pairs (by studies given)
-            const pairsWithData = allPairs.map(pair => {
-                const m1 = allMembers.find(m => m.id === pair.member1Id);
-                const m2 = allMembers.find(m => m.id === pair.member2Id);
-                const names = `${m1?.firstName} ${m1?.lastName} & ${m2?.firstName} ${m2?.lastName}`;
+                    const allPairs = await backend.getMissionaryPairs();
+                    // Filter pairs that belong to one of the church GPs
+                    const churchPairs = allPairs.filter(p => churchGps.some(g => g.id === p.gpId));
 
-                // Calculate total studies from weekly reports
-                const pairReports = allReports.filter(r => r.missionaryPairsStats.some((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id));
-                const totalStudies = pairReports.reduce((sum, r) => {
-                    const pairStats = r.missionaryPairsStats.find((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id);
-                    return sum + (pairStats?.studiesGiven || 0);
-                }, 0);
+                    const allMembers = await backend.getMembers();
+                    const allReports = await backend.getReports();
 
-                return { pair, names, studies: totalStudies };
-            });
+                    // 1. Top Pairs (by studies given)
+                    const pairsWithData = churchPairs.map(pair => {
+                        const m1 = allMembers.find(m => m.id === pair.member1Id);
+                        const m2 = allMembers.find(m => m.id === pair.member2Id);
+                        const names = `${m1?.firstName || 'N/A'} ${m1?.lastName || ''} & ${m2?.firstName || 'N/A'} ${m2?.lastName || ''}`;
 
-            setTopPairs(pairsWithData.sort((a, b) => b.studies - a.studies).slice(0, 5));
+                        // Calculate total studies from weekly reports
+                        // Filter reports that have stats for this pair
+                        const pairReports = allReports.filter(r => r.missionaryPairsStats && r.missionaryPairsStats.some((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id));
 
-            // 2. Top GPs (Score based on attendance, friends, studies)
-            const gpsWithScore = churchGps.map(gp => {
-                const gpReports = allReports.filter(r => r.gpId === gp.id);
+                        const totalStudies = pairReports.reduce((sum, r) => {
+                            const pairStats = r.missionaryPairsStats.find((stats: { pairId: string; studiesGiven: number }) => stats.pairId === pair.id);
+                            return sum + (pairStats?.studiesGiven || 0);
+                        }, 0);
 
-                const totalAttendance = gpReports.reduce((sum, r) => sum + r.summary.totalAttendance, 0);
-                const totalGuests = gpReports.reduce((sum, r) => sum + r.summary.totalGuests, 0);
-                const totalStudies = gpReports.reduce((sum, r) => sum + r.summary.totalStudies, 0);
+                        return { pair, names, studies: totalStudies };
+                    });
 
-                // Simple scoring algorithm
-                const score = totalAttendance + (totalGuests * 2) + (totalStudies * 3);
+                    setTopPairs(pairsWithData.sort((a, b) => b.studies - a.studies).slice(0, 5));
 
-                return {
-                    gp,
-                    score,
-                    details: { totalAttendance, totalGuests, totalStudies }
-                };
-            });
+                    // 2. Top GPs (Score based on attendance, friends, studies)
+                    const gpsWithScore = churchGps.map(gp => {
+                        const gpReports = allReports.filter(r => r.gpId === gp.id);
 
-            setTopGps(gpsWithScore.sort((a, b) => b.score - a.score).slice(0, 5));
-        }
-    }, [church]);
+                        const totalAttendance = gpReports.reduce((sum, r) => sum + r.summary.totalAttendance, 0);
+                        const totalGuests = gpReports.reduce((sum, r) => sum + r.summary.totalGuests, 0);
+                        const totalStudies = gpReports.reduce((sum, r) => sum + r.summary.totalStudies, 0);
+
+                        // Simple scoring algorithm
+                        const score = totalAttendance + (totalGuests * 2) + (totalStudies * 3);
+
+                        return {
+                            gp,
+                            score,
+                            details: { totalAttendance, totalGuests, totalStudies }
+                        };
+                    });
+
+                    setTopGps(gpsWithScore.sort((a, b) => b.score - a.score).slice(0, 5));
+                } catch (error) {
+                    console.error("Error loading top data:", error);
+                }
+            }
+        };
+        loadTopData();
+    }, [church, backend]);
 
     return (
         <div className="space-y-8">

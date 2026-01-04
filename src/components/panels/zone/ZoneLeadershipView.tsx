@@ -1,22 +1,50 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Zone, District, Church, SmallGroup, Member } from '../../../types';
 import { Users, ChevronDown, ChevronRight, Check, UserCheck, UserPlus } from 'lucide-react';
 
 const ZoneLeadershipView: React.FC = () => {
     const { zone } = useOutletContext<{ zone: Zone }>();
+    const { backend } = useBackend();
     const [districts, setDistricts] = useState<District[]>([]);
+    const [churches, setChurches] = useState<Church[]>([]);
+    const [gps, setGps] = useState<SmallGroup[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
+
     const [expandedDistricts, setExpandedDistricts] = useState<Set<string>>(new Set());
     const [expandedChurches, setExpandedChurches] = useState<Set<string>>(new Set());
     const [expandedGPs, setExpandedGPs] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (zone) {
-            const zoneDistricts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-            setDistricts(zoneDistricts);
-        }
-    }, [zone]);
+        const loadData = async () => {
+            if (zone) {
+                try {
+                    const allDistricts = await backend.getDistricts();
+                    const zoneDistricts = allDistricts.filter(d => d.zoneId === zone.id);
+                    setDistricts(zoneDistricts);
+
+                    const [allChurches, allGPs, allMembers] = await Promise.all([
+                        backend.getChurches(),
+                        backend.getGPs(),
+                        backend.getMembers()
+                    ]);
+
+                    // Filter relevant data
+                    const relevantChurches = allChurches.filter(c => zoneDistricts.some(d => d.id === c.districtId));
+                    const relevantGPs = allGPs.filter(g => relevantChurches.some(c => c.id === g.churchId));
+                    // We'll keep all members or filter by relevant GPs. Filtering is safer for performance.
+                    const relevantMembers = allMembers.filter(m => relevantGPs.some(g => g.id === m.gpId));
+
+                    setChurches(relevantChurches);
+                    setGps(relevantGPs);
+                    setMembers(relevantMembers);
+
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadData();
+    }, [zone, backend]);
 
     const toggleDistrict = (districtId: string) => {
         const newExpanded = new Set(expandedDistricts);
@@ -49,8 +77,8 @@ const ZoneLeadershipView: React.FC = () => {
     };
 
     const getLeadershipMembers = (gpId: string): Member[] => {
-        const members = mockBackend.getMembersByGP(gpId);
-        return members.filter(m => m.isBaptized);
+        const gpMembers = members.filter(m => m.gpId === gpId);
+        return gpMembers.filter(m => m.isBaptized);
     };
 
     const getLeadershipStatus = (member: Member) => {
@@ -78,7 +106,7 @@ const ZoneLeadershipView: React.FC = () => {
 
     const renderHierarchy = () => {
         return districts.map(district => {
-            const districtChurches = mockBackend.getChurches().filter(c => c.districtId === district.id);
+            const districtChurches = churches.filter(c => c.districtId === district.id);
             const isDistrictExpanded = expandedDistricts.has(district.id);
 
             return (
@@ -99,7 +127,7 @@ const ZoneLeadershipView: React.FC = () => {
 
                     {/* Churches */}
                     {isDistrictExpanded && districtChurches.map(church => {
-                        const churchGPs = mockBackend.getGPs().filter(g => g.churchId === church.id);
+                        const churchGPs = gps.filter(g => g.churchId === church.id);
                         const isChurchExpanded = expandedChurches.has(church.id);
 
                         return (
@@ -120,7 +148,7 @@ const ZoneLeadershipView: React.FC = () => {
 
                                 {/* GPs */}
                                 {isChurchExpanded && churchGPs.map(gp => {
-                                    const leader = mockBackend.getMembersByGP(gp.id).find(m => m.id === gp.leaderId);
+                                    const leader = members.find(m => m.id === gp.leaderId);
                                     const leadershipMembers = getLeadershipMembers(gp.id);
                                     const isGPExpanded = expandedGPs.has(gp.id);
 

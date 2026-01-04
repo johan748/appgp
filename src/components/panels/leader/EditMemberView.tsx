@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Member } from '../../../types';
 import { Save, ArrowLeft } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -9,6 +9,7 @@ const EditMemberView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [member, setMember] = useState<Member | null>(null);
 
     const [formData, setFormData] = useState({
@@ -25,29 +26,37 @@ const EditMemberView: React.FC = () => {
     });
 
     useEffect(() => {
-        if (id) {
-            const allMembers = mockBackend.getMembers();
-            const foundMember = allMembers.find(m => m.id === id);
+        const loadMember = async () => {
+            if (id) {
+                try {
+                    // Ideally we should have getMemberById but we can filter from getMembers for now or add it
+                    const allMembers = await backend.getMembers(); // optimize later
+                    const foundMember = allMembers.find(m => m.id === id);
 
-            if (foundMember) {
-                setMember(foundMember);
-                setFormData({
-                    firstName: foundMember.firstName,
-                    lastName: foundMember.lastName,
-                    cedula: foundMember.cedula,
-                    birthDate: foundMember.birthDate,
-                    phone: foundMember.phone,
-                    email: foundMember.email || '',
-                    address: foundMember.address,
-                    isBaptized: foundMember.isBaptized ? 'Sí' : 'No',
-                    gender: foundMember.gender,
-                    role: foundMember.role
-                });
+                    if (foundMember) {
+                        setMember(foundMember);
+                        setFormData({
+                            firstName: foundMember.firstName,
+                            lastName: foundMember.lastName,
+                            cedula: foundMember.cedula,
+                            birthDate: foundMember.birthDate,
+                            phone: foundMember.phone,
+                            email: foundMember.email || '',
+                            address: foundMember.address,
+                            isBaptized: foundMember.isBaptized ? 'Sí' : 'No',
+                            gender: foundMember.gender,
+                            role: foundMember.role
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading member:", error);
+                }
             }
-        }
-    }, [id]);
+        };
+        loadMember();
+    }, [id, backend]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (member) {
             const updatedMember: Member = {
@@ -58,9 +67,14 @@ const EditMemberView: React.FC = () => {
                 role: formData.role as 'MIEMBRO' | 'LIDER' | 'LIDER_EN_FORMACION' | 'SECRETARIO'
             };
 
-            mockBackend.updateMember(updatedMember);
-            showToast('Miembro actualizado exitosamente', 'success');
-            navigate('/leader/members');
+            try {
+                await backend.updateMember(updatedMember);
+                showToast('Miembro actualizado exitosamente', 'success');
+                navigate('/leader/members');
+            } catch (error) {
+                console.error("Error updating member:", error);
+                showToast('Error al actualizar miembro', 'error');
+            }
         }
     };
 

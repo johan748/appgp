@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, SmallGroup, WeeklyReport, Member, Church } from '../../../types';
 import { Check, X } from 'lucide-react';
 
 const PastorGPReportsView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
+    const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [gps, setGps] = useState<SmallGroup[]>([]);
@@ -17,30 +18,48 @@ const PastorGPReportsView: React.FC = () => {
 
     useEffect(() => {
         // Load churches
-        const allChurches = mockBackend.getChurches();
-        setChurches(allChurches.filter(c => c.districtId === district.id));
-    }, [district.id]);
+        const loadChurches = async () => {
+            try {
+                const allChurches = await backend.getChurches();
+                setChurches(allChurches.filter(c => c.districtId === district.id));
+            } catch (error) { console.error(error); }
+        };
+        loadChurches();
+    }, [district.id, backend]);
 
     useEffect(() => {
-        if (selectedChurchId) {
-            setGps(mockBackend.getGPs().filter(g => g.churchId === selectedChurchId));
-            setSelectedGpId('');
-            setReports([]);
-            setCurrentReport(null);
-        } else {
-            setGps([]);
-        }
-    }, [selectedChurchId]);
+        const loadGps = async () => {
+            if (selectedChurchId) {
+                try {
+                    const allGPs = await backend.getGPs();
+                    setGps(allGPs.filter(g => g.churchId === selectedChurchId));
+                    setSelectedGpId('');
+                    setReports([]);
+                    setCurrentReport(null);
+                } catch (error) { console.error(error); }
+            } else {
+                setGps([]);
+            }
+        };
+        loadGps();
+    }, [selectedChurchId, backend]);
 
     useEffect(() => {
-        if (selectedGpId) {
-            const gpReports = mockBackend.getReports().filter(r => r.gpId === selectedGpId);
-            setReports(gpReports);
-            setMembers(mockBackend.getMembersByGP(selectedGpId));
-            setSelectedDate('');
-            setCurrentReport(null);
-        }
-    }, [selectedGpId]);
+        const loadReports = async () => {
+            if (selectedGpId) {
+                try {
+                    const allReports = await backend.getReports();
+                    const gpReports = allReports.filter(r => r.gpId === selectedGpId);
+                    setReports(gpReports);
+                    const gpMembers = await backend.getMembersByGP(selectedGpId);
+                    setMembers(gpMembers);
+                    setSelectedDate('');
+                    setCurrentReport(null);
+                } catch (error) { console.error(error); }
+            }
+        };
+        loadReports();
+    }, [selectedGpId, backend]);
 
     useEffect(() => {
         if (selectedDate) {

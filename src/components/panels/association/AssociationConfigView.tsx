@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { Association } from '../../../types';
 import { Settings, Save, Lock, User, Target } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -8,6 +8,8 @@ import { useToast } from '../../../context/ToastContext';
 const AssociationConfigView: React.FC = () => {
     const { association, refreshAssociation } = useOutletContext<{ association: Association; refreshAssociation: () => void }>();
     const { showToast } = useToast();
+    const { backend } = useBackend();
+    const [unionName, setUnionName] = useState('Unión no encontrada');
 
     // State initialization
     const [assocName, setAssocName] = useState(association.name);
@@ -26,9 +28,19 @@ const AssociationConfigView: React.FC = () => {
         setUsername(association.config.username);
         setPassword(association.config.password);
         setAnnualBaptismGoal(association.config.annualBaptismGoal || 0);
-    }, [association]);
 
-    const handleSave = (e: React.FormEvent) => {
+        const loadUnion = async () => {
+            if (association.unionId) {
+                try {
+                    const union = await backend.getUnionById(association.unionId);
+                    if (union) setUnionName(union.name);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadUnion();
+    }, [association, backend]);
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
         try {
@@ -44,7 +56,7 @@ const AssociationConfigView: React.FC = () => {
                 }
             };
 
-            mockBackend.updateAssociation(updatedAssoc);
+            await backend.updateAssociation(updatedAssoc);
             refreshAssociation(); // Update parent state
             showToast('Configuración guardada exitosamente. Las credenciales de acceso se han actualizado.', 'success');
         } catch (error: any) {
@@ -74,7 +86,7 @@ const AssociationConfigView: React.FC = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nombre de la Unión</label>
                             <p className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-100 text-gray-600">
-                                {mockBackend.getUnionById(association.unionId)?.name || 'Unión no encontrada'}
+                                {unionName}
                             </p>
                         </div>
                         <div>

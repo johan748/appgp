@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { mockBackend } from '../../../services/mockBackend';
-import { Association, Zone, District, Church, SmallGroup } from '../../../types';
+import { useOutletContext } from 'react-router-dom';
+import { useBackend } from '../../../context/BackendContext';
+import { Association, Zone, District, Church, SmallGroup, Report, Member } from '../../../types';
 import { BarChart, Users, BookOpen, Activity, ChevronDown, ChevronRight } from 'lucide-react';
 
 const AssociationGlobalReportsView: React.FC = () => {
     const { association } = useOutletContext<{ association: Association }>();
+    const { backend } = useBackend();
     const [zones, setZones] = useState<Zone[]>([]);
+
+    // Cached data for hierarchy rendering
+    const [allDistricts, setAllDistricts] = useState<District[]>([]);
+    const [allChurches, setAllChurches] = useState<Church[]>([]);
+    const [allGPs, setAllGPs] = useState<SmallGroup[]>([]);
+    const [allReports, setAllReports] = useState<Report[]>([]);
+    const [allMembers, setAllMembers] = useState<Member[]>([]);
+
     const [globalStats, setGlobalStats] = useState({
         totalAttendance: 0,
         totalStudies: 0,
@@ -27,65 +37,76 @@ const AssociationGlobalReportsView: React.FC = () => {
     const [expandedChurches, setExpandedChurches] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (association) {
-            const assocZones = mockBackend.getZones().filter(z => z.associationId === association.id);
-            setZones(assocZones);
+        const loadData = async () => {
+            if (association) {
+                try {
+                    const loadedZones = await backend.getZones();
+                    const assocZones = loadedZones.filter(z => z.associationId === association.id);
+                    setZones(assocZones);
 
-            // Calculate Global Stats from Reports
-            const allReports = mockBackend.getReports();
-            // TODO: In a real app, filtering reports by association requires walking down the tree: 
-            // Association -> Zones -> Districts -> Churches -> GPs -> Reports
-            // For mock, we can assume reports belong to GPs, and GPs belong to Churches...
+                    // Fetch all hierarchy data once
+                    const [districtsData, churchesData, gpsData, reportsData, membersData] = await Promise.all([
+                        backend.getDistricts(),
+                        backend.getChurches(),
+                        backend.getGPs(),
+                        backend.getReports(),
+                        backend.getMembers()
+                    ]);
 
-            // 1. Get all GPs in this Association
-            const allDistricts = mockBackend.getDistricts();
-            const allChurches = mockBackend.getChurches();
-            const allGPs = mockBackend.getGPs();
+                    setAllDistricts(districtsData);
+                    setAllChurches(churchesData);
+                    setAllGPs(gpsData);
+                    setAllReports(reportsData);
+                    setAllMembers(membersData);
 
-            const assocDistricts = allDistricts.filter(d => assocZones.some(z => z.id === d.zoneId));
-            const assocChurches = allChurches.filter(c => assocDistricts.some(d => d.id === c.districtId));
-            const assocGPs = allGPs.filter(g => assocChurches.some(c => c.id === g.churchId));
-            const assocGpIds = assocGPs.map(g => g.id);
+                    // Filter down for stats calculation
+                    const assocDistricts = districtsData.filter(d => assocZones.some(z => z.id === d.zoneId));
+                    const assocChurches = churchesData.filter(c => assocDistricts.some(d => d.id === c.districtId));
+                    const assocGPs = gpsData.filter(g => assocChurches.some(c => c.id === g.churchId));
+                    const assocGpIds = assocGPs.map(g => g.id);
 
-            // Build date range
-            const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
-            const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
-            endDate.setMonth(endDate.getMonth() + 1); // End of the month
+                    // Build date range
+                    const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
+                    const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
+                    endDate.setMonth(endDate.getMonth() + 1); // End of the month
 
-            // Filter reports by GP and date range
-            const assocReports = allReports.filter(r => {
-                if (!assocGpIds.includes(r.gpId)) return false;
-                const reportDate = new Date(r.date);
-                return reportDate >= startDate && reportDate < endDate;
-            });
+                    // Filter reports by GP and date range
+                    const assocReports = reportsData.filter(r => {
+                        if (!assocGpIds.includes(r.gpId)) return false;
+                        const reportDate = new Date(r.date);
+                        return reportDate >= startDate && reportDate < endDate;
+                    });
 
-            // Aggregate
-            const totalAttendance = assocReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0);
-            const totalStudies = assocReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
-            const totalGuests = assocReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
-            const totalBaptisms = assocReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
+                    // Aggregate
+                    const totalAttendance = assocReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0);
+                    const totalStudies = assocReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0);
+                    const totalGuests = assocReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0);
+                    const totalBaptisms = assocReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0);
 
-            setGlobalStats({ totalAttendance, totalStudies, totalGuests, totalBaptisms });
+                    setGlobalStats({ totalAttendance, totalStudies, totalGuests, totalBaptisms });
 
-            // Stats by Zone
-            const statsByZone = assocZones.map(zone => {
-                const zDistricts = assocDistricts.filter(d => d.zoneId === zone.id);
-                const zChurches = assocChurches.filter(c => zDistricts.some(d => d.id === c.districtId));
-                const zGPs = assocGPs.filter(g => zChurches.some(c => c.id === g.churchId));
-                const zReports = assocReports.filter(r => zGPs.some(g => g.id === r.gpId));
+                    // Stats by Zone
+                    const statsByZone = assocZones.map(zone => {
+                        const zDistricts = assocDistricts.filter(d => d.zoneId === zone.id);
+                        const zChurches = assocChurches.filter(c => zDistricts.some(d => d.id === c.districtId));
+                        const zGPs = assocGPs.filter(g => zChurches.some(c => c.id === g.churchId));
+                        const zReports = assocReports.filter(r => zGPs.some(g => g.id === r.gpId));
 
-                return {
-                    id: zone.id,
-                    name: zone.name,
-                    attendance: zReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
-                    studies: zReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
-                    guests: zReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
-                    baptisms: zReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
-                };
-            });
-            setZoneStats(statsByZone);
-        }
-    }, [association, filters]);
+                        return {
+                            id: zone.id,
+                            name: zone.name,
+                            attendance: zReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
+                            studies: zReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
+                            guests: zReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
+                            baptisms: zReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0) || 0)
+                        };
+                    });
+                    setZoneStats(statsByZone);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadData();
+    }, [association, filters, backend]);
 
     const toggleZone = (zoneId: string) => {
         const newExpanded = new Set(expandedZones);
@@ -129,11 +150,6 @@ const AssociationGlobalReportsView: React.FC = () => {
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
 
     const renderHierarchy = () => {
-        const allDistricts = mockBackend.getDistricts();
-        const allChurches = mockBackend.getChurches();
-        const allGPs = mockBackend.getGPs();
-        const allReports = mockBackend.getReports();
-
         // Build date range
         const startDate = new Date(`${filters.startYear}-${filters.startMonth}-01`);
         const endDate = new Date(`${filters.endYear}-${filters.endMonth}-01`);
@@ -273,7 +289,7 @@ const AssociationGlobalReportsView: React.FC = () => {
                                                                 <div className="w-4"></div>
                                                                 <div>
                                                                     <p className="font-medium text-gray-900">GP: {gp.name}</p>
-                                                                    <p className="text-xs text-gray-600">Líder: {mockBackend.getMembersByGP(gp.id).find(m => m.id === gp.leaderId)?.firstName} {mockBackend.getMembersByGP(gp.id).find(m => m.id === gp.leaderId)?.lastName}</p>
+                                                                    <p className="text-xs text-gray-600">Líder: {allMembers.find(m => m.id === gp.leaderId)?.firstName} {allMembers.find(m => m.id === gp.leaderId)?.lastName}</p>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">

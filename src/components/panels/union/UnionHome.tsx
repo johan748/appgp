@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Union, Association } from '../../../types';
-import { mockBackend } from '../../../services/mockBackend';
+import { useOutletContext } from 'react-router-dom';
+import { useBackend } from '../../../context/BackendContext';
+import { Union, Association } from '../../../types';
 import { Building, Users, Activity, FileText, UserCheck } from 'lucide-react';
 
 const UnionHome: React.FC = () => {
     const { union } = useOutletContext<{ union: Union }>();
+    const { backend } = useBackend();
     const [stats, setStats] = useState({
         associations: 0,
         totalMembers: 0,
@@ -14,41 +17,36 @@ const UnionHome: React.FC = () => {
     });
 
     useEffect(() => {
-        if (union) {
-            const assocs = mockBackend.getAssociations().filter(a => a.unionId === union.id);
-            // In a real scenario, we'd aggregate deep metrics. For now just counts.
-            // Mock backend doesn't track total members efficiently without walking the tree,
-            // but associations have a 'membershipCount' field (often static in this mock).
-            const members = assocs.reduce((sum, a) => sum + (a.membershipCount || 0), 0);
+        const loadStats = async () => {
+            if (union) {
+                try {
+                    const assocs = await backend.getAssociations();
+                    const unionAssocs = assocs.filter(a => a.unionId === union.id);
 
-            // Calculate total small groups across all churches in all associations
-            let totalSmallGroups = 0;
-            assocs.forEach(assoc => {
-                // Get all zones for this association
-                const zones = mockBackend.getZones().filter(z => z.associationId === assoc.id);
-                zones.forEach(zone => {
-                    // Get all districts for this zone
-                    const districts = mockBackend.getDistricts().filter(d => d.zoneId === zone.id);
-                    districts.forEach(district => {
-                        // Get all churches for this district
-                        const churches = mockBackend.getChurches().filter(c => c.districtId === district.id);
-                        churches.forEach(church => {
-                            // Count GPs for this church
-                            const gps = mockBackend.getGPs().filter(g => g.churchId === church.id);
-                            totalSmallGroups += gps.length;
-                        });
+                    const [allZones, allDistricts, allChurches, allGPs] = await Promise.all([
+                        backend.getZones(),
+                        backend.getDistricts(),
+                        backend.getChurches(),
+                        backend.getGPs()
+                    ]);
+
+                    // Filter down
+                    const zones = allZones.filter(z => unionAssocs.some(a => a.id === z.associationId));
+                    const districts = allDistricts.filter(d => zones.some(z => z.id === d.zoneId));
+                    const churches = allChurches.filter(c => districts.some(d => d.id === c.districtId));
+                    const gps = allGPs.filter(g => churches.some(c => c.id === g.churchId));
+
+                    setStats({
+                        associations: unionAssocs.length,
+                        totalMembers: unionAssocs.reduce((sum, a) => sum + (a.membershipCount || 0), 0),
+                        totalSmallGroups: gps.length,
+                        totalBaptisms: 0
                     });
-                });
-            });
-
-            setStats({
-                associations: assocs.length,
-                totalMembers: members,
-                totalSmallGroups: totalSmallGroups,
-                totalBaptisms: 0 // Will be calculated in reports view, just placeholder here or can add logic
-            });
-        }
-    }, [union]);
+                } catch (e) { console.error(e); }
+            }
+        };
+        loadStats();
+    }, [union, backend]);
 
     return (
         <div className="space-y-6 animate-fade-in">
