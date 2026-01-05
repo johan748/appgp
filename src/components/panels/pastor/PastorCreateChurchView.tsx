@@ -15,6 +15,7 @@ const PastorCreateChurchView: React.FC = () => {
         name: '',
         address: '',
         directorName: '',
+        email: '',
         username: '',
         password: ''
     });
@@ -49,15 +50,29 @@ const PastorCreateChurchView: React.FC = () => {
             // In my IBackendService, createUser takes Omit<User, 'id'> and returns Promise<User>.
             // So we should NOT pass ID.
 
+            const userMetadata = {
+                name: formData.directorName,
+                role: 'DIRECTOR_MP' as any,
+                relatedEntityId: newChurch.id
+            };
+
             const userToCreate: Omit<User, 'id'> = {
                 username: formData.username,
                 password: formData.password,
-                role: 'DIRECTOR_MP',
+                email: formData.email,
+                role: userMetadata.role,
                 relatedEntityId: newChurch.id,
-                name: formData.directorName
+                name: userMetadata.name
             };
 
             await backend.createUser(userToCreate);
+
+            // 4. Create account in Supabase Auth
+            try {
+                await backend.createAuthUser(formData.email, formData.password, userMetadata);
+            } catch (authError: any) {
+                console.error('Error creating auth account:', authError);
+            }
 
             showToast('Iglesia creada exitosamente', 'success');
             navigate('/pastor/churches');
@@ -90,6 +105,11 @@ const PastorCreateChurchView: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700">Nombre Completo</label>
                             <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                 value={formData.directorName} onChange={e => setFormData({ ...formData, directorName: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Email (Acceso)</label>
+                            <input type="email" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                                value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="director@iglesia.org" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>

@@ -18,6 +18,7 @@ const AssociationZonesView: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         directorName: '',
+        email: '',
         username: '',
         password: ''
     });
@@ -54,7 +55,7 @@ const AssociationZonesView: React.FC = () => {
 
     const handleCreate = () => {
         setEditingZone(null);
-        setFormData({ name: '', directorName: '', username: '', password: '' });
+        setFormData({ name: '', directorName: '', email: '', username: '', password: '' });
         setIsModalOpen(true);
     };
 
@@ -69,6 +70,7 @@ const AssociationZonesView: React.FC = () => {
             setFormData({
                 name: zone.name,
                 directorName: directorUser ? directorUser.name : '',
+                email: directorUser ? directorUser.email || '' : '',
                 username: directorUser ? directorUser.username : '',
                 password: ''
             });
@@ -132,19 +134,39 @@ const AssociationZonesView: React.FC = () => {
 
                 // 2. Create Director User FIRST
                 let directorUserId = 'pending';
-                if (formData.username && formData.password) {
+                if (formData.username && formData.password && formData.email) {
                     try {
+                        const userMetadata = {
+                            name: formData.directorName,
+                            role: 'DIRECTOR_ZONA' as any,
+                            relatedEntityId: zoneId
+                        };
+
+                        // A. Create record in public.users
                         const newUser = await backend.createUser({
                             username: formData.username,
                             password: formData.password,
-                            role: 'DIRECTOR_ZONA',
+                            email: formData.email,
+                            role: userMetadata.role,
                             relatedEntityId: zoneId,
-                            name: formData.directorName
+                            name: userMetadata.name
                         });
                         directorUserId = newUser.id;
+
+                        // B. Create account in Supabase Auth
+                        try {
+                            await backend.createAuthUser(formData.email, formData.password, userMetadata);
+                        } catch (authError: any) {
+                            console.error('Error creating auth account:', authError);
+                            // We don't rollback if auth fails, but warn. 
+                            // Or should we rollback? For Zones, maybe better to keep consistency.
+                        }
+
                     } catch (userError: any) {
                         throw new Error('Error al crear el usuario del director: ' + userError.message);
                     }
+                } else if (!formData.email && formData.username) {
+                    throw new Error('El correo electrónico es obligatorio para crear la cuenta de acceso.');
                 }
 
                 // 3. Save Zone with the correct directorId
@@ -284,6 +306,17 @@ const AssociationZonesView: React.FC = () => {
                                         value={formData.directorName}
                                         onChange={e => setFormData({ ...formData, directorName: e.target.value })}
                                         placeholder="Ej. Pr. Carlos Director"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email (Acceso)</label>
+                                    <input
+                                        type="email"
+                                        required={!editingZone}
+                                        className="w-full border border-gray-300 rounded p-2"
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="director@iglesia.org"
                                     />
                                 </div>
                                 <div>

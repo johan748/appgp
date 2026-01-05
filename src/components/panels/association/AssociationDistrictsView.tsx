@@ -19,6 +19,7 @@ const AssociationDistrictsView: React.FC = () => {
         name: '',
         zoneId: '',
         pastorName: '',
+        email: '',
         username: '',
         password: '',
         goals: {
@@ -57,6 +58,7 @@ const AssociationDistrictsView: React.FC = () => {
             name: '',
             zoneId: '',
             pastorName: '',
+            email: '',
             username: '',
             password: '',
             goals: {
@@ -82,6 +84,7 @@ const AssociationDistrictsView: React.FC = () => {
                 name: district.name,
                 zoneId: district.zoneId,
                 pastorName: pastorUser ? pastorUser.name : '',
+                email: pastorUser ? pastorUser.email || '' : '',
                 username: pastorUser ? pastorUser.username : '',
                 password: '',
                 goals: district.goals || {
@@ -142,9 +145,10 @@ const AssociationDistrictsView: React.FC = () => {
                         // Create if missing
                         try {
                             await backend.createUser({
+                                email: formData.email,
                                 username: formData.username,
                                 password: formData.password || 'password',
-                                role: 'PASTOR',
+                                role: 'PASTOR' as any,
                                 relatedEntityId: updatedDistrict.id,
                                 name: formData.pastorName
                             });
@@ -178,19 +182,37 @@ const AssociationDistrictsView: React.FC = () => {
                 await backend.addDistrict(newDistrict);
 
                 // 3. Create Pastor User with Rollback (simulated via try/catch)
-                if (formData.username && formData.password) {
+                if (formData.username && formData.password && formData.email) {
                     try {
+                        const userMetadata = {
+                            name: formData.pastorName,
+                            role: 'PASTOR' as any,
+                            relatedEntityId: districtId
+                        };
+
+                        // A. Create record in public.users
                         await backend.createUser({
                             username: formData.username,
                             password: formData.password,
-                            role: 'PASTOR',
+                            email: formData.email,
+                            role: userMetadata.role,
                             relatedEntityId: districtId,
-                            name: formData.pastorName
+                            name: userMetadata.name
                         });
+
+                        // B. Create account in Supabase Auth
+                        try {
+                            await backend.createAuthUser(formData.email, formData.password, userMetadata);
+                        } catch (authError: any) {
+                            console.error('Error creating auth account:', authError);
+                        }
+
                     } catch (userError: any) {
                         await backend.deleteDistrict(districtId);
                         throw new Error('Error al crear el usuario del pastor: ' + userError.message + '. Operación cancelada.');
                     }
+                } else if (!formData.email && formData.username) {
+                    throw new Error('El correo electrónico es obligatorio para crear la cuenta de acceso.');
                 }
             }
 
@@ -341,6 +363,17 @@ const AssociationDistrictsView: React.FC = () => {
                                         value={formData.pastorName}
                                         onChange={e => setFormData({ ...formData, pastorName: e.target.value })}
                                         placeholder="Ej. Pr. Juan Pérez"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email (Acceso)</label>
+                                    <input
+                                        type="email"
+                                        required={!editingDistrict}
+                                        className="w-full border border-gray-300 rounded p-2"
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="pastor@iglesia.org"
                                     />
                                 </div>
                                 <div className="hidden md:block"></div>

@@ -8,6 +8,7 @@ export interface IBackendService {
     // User Management
     getUsers(): Promise<User[]>;
     createUser(userData: Omit<User, 'id'>): Promise<User>;
+    createAuthUser(email: string, password: string, userMetadata?: any): Promise<any>;
     updateUser(user: User): Promise<User>;
     deleteUser(id: string): Promise<void>;
 

@@ -29,6 +29,15 @@ export class MockBackendAsyncService implements IBackendService {
         return Promise.resolve(mockBackend.deleteUser(id));
     }
 
+    async createAuthUser(email: string, password: string, userMetadata?: any): Promise<any> {
+        // Just simulate a successful response for the mock
+        return Promise.resolve({
+            id: 'auth-' + Math.random().toString(36).substr(2, 9),
+            email,
+            user_metadata: userMetadata
+        });
+    }
+
     async getGPs(): Promise<SmallGroup[]> {
         return Promise.resolve(mockBackend.getGPs());
     }

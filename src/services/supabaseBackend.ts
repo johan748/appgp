@@ -200,6 +200,33 @@ class SupabaseBackendService {
         }
     }
 
+    // Auth Automation
+    async createAuthUser(email: string, password: string, userMetadata: any = {}): Promise<any> {
+        try {
+            const response = await fetch('/api/create-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email,
+                    password,
+                    user_metadata: userMetadata
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to create auth user');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating auth user:', error);
+            throw error;
+        }
+    }
+
     // Small Groups
     async getGPs(): Promise<SmallGroup[]> {
         try {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../context/ToastContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Union } from '../../../types';
-import { Plus, Edit, Trash2, Save, X, Building } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Building } from 'lucide-react';
 
 const AdminUnionsView: React.FC = () => {
     const { showToast } = useToast();
@@ -10,6 +10,8 @@ const AdminUnionsView: React.FC = () => {
     const [unions, setUnions] = useState<Union[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [currentUnion, setCurrentUnion] = useState<Partial<Union>>({});
+    const [userEmail, setUserEmail] = useState(''); // State for user email
+    const [userName, setUserName] = useState('');   // State for user full name
 
     useEffect(() => {
         loadUnions();
@@ -24,6 +26,8 @@ const AdminUnionsView: React.FC = () => {
 
     const handleEdit = (union: Union) => {
         setCurrentUnion(union);
+        setUserEmail(''); // We don't easily know the email of the linked user without fetching it
+        setUserName(union.name); // Default name to union name
         setIsEditing(true);
     };
 
@@ -43,28 +47,70 @@ const AdminUnionsView: React.FC = () => {
             evangelismDepartmentHead: '',
             config: { username: '', password: '' }
         });
+        setUserEmail('');
+        setUserName('');
         setIsEditing(true);
     };
 
     const handleSave = async () => {
         if (!currentUnion.name || !currentUnion.evangelismDepartmentHead) {
-            showToast('Por favor complete los campos obligatorios', 'warning');
+            showToast('Por favor complete los campos obligatorios de la Unión', 'warning');
             return;
         }
 
         try {
-            if (currentUnion.id) {
+            let unionId = currentUnion.id;
+
+            if (unionId) {
                 await backend.updateUnion(currentUnion as Union);
+                showToast('Unión actualizada', 'success');
             } else {
-                const newUnion = {
+                // 1. Create Union
+                const newUnionData = {
                     ...currentUnion,
                     id: 'union-' + Math.random().toString(36).substr(2, 9),
                 } as Union;
-                await backend.addUnion(newUnion);
+                const createdUnion = await backend.addUnion(newUnionData);
+                unionId = createdUnion.id;
+
+                // 2. Create Linked User (Only on creation)
+                if (currentUnion.config?.username && userEmail) {
+                    try {
+                        const userMetadata = {
+                            name: userName || currentUnion.name!,
+                            role: 'UNION' as any,
+                            relatedEntityId: unionId
+                        };
+
+                        // A. Create record in public.users
+                        await backend.createUser({
+                            username: currentUnion.config.username,
+                            email: userEmail,
+                            name: userMetadata.name,
+                            role: userMetadata.role,
+                            relatedEntityId: unionId,
+                            isActive: true,
+                            password: currentUnion.config.password
+                        });
+
+                        // B. Create account in Supabase Auth (Automated via Vercel Function)
+                        try {
+                            await backend.createAuthUser(userEmail, currentUnion.config.password, userMetadata);
+                            showToast('Usuario de sistema y cuenta de acceso creados exitosamente', 'success');
+                        } catch (authError: any) {
+                            console.error('Error creating auth account:', authError);
+                            showToast(`Usuario creado en BD, pero error en Auth: ${authError.message}`, 'warning');
+                        }
+
+                    } catch (userError) {
+                        console.error('Error creating user:', userError);
+                        showToast('Unión creada, pero error al crear usuario', 'warning');
+                    }
+                }
+                showToast('Unión guardada correctamente', 'success');
             }
             setIsEditing(false);
             loadUnions();
-            showToast('Unión guardada', 'success');
         } catch (e) { showToast('Error al guardar', 'error'); }
     };
 
@@ -84,14 +130,22 @@ const AdminUnionsView: React.FC = () => {
             {isEditing && (
                 <div className="bg-white p-6 rounded-lg shadow-lg border border-indigo-100 animate-fade-in">
                     <h3 className="text-lg font-bold mb-4">{currentUnion.id ? 'Editar Unión' : 'Nueva Unión'}</h3>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="col-span-2">
+                            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Datos de la Unión</h4>
+                            <hr className="mb-4" />
+                        </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la Unión</label>
                             <input
                                 type="text"
                                 className="w-full border border-gray-300 rounded p-2"
                                 value={currentUnion.name || ''}
-                                onChange={e => setCurrentUnion({ ...currentUnion, name: e.target.value })}
+                                onChange={e => {
+                                    setCurrentUnion({ ...currentUnion, name: e.target.value });
+                                    if (!currentUnion.id) setUserName(e.target.value);
+                                }}
                             />
                         </div>
                         <div>
@@ -103,31 +157,63 @@ const AdminUnionsView: React.FC = () => {
                                 onChange={e => setCurrentUnion({ ...currentUnion, evangelismDepartmentHead: e.target.value })}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario Admin</label>
-                            <input
-                                type="text"
-                                className="w-full border border-gray-300 rounded p-2"
-                                value={currentUnion.config?.username || ''}
-                                onChange={e => setCurrentUnion({
-                                    ...currentUnion,
-                                    config: { ...currentUnion.config!, username: e.target.value }
-                                })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                            <input
-                                type="text"
-                                className="w-full border border-gray-300 rounded p-2"
-                                value={currentUnion.config?.password || ''}
-                                onChange={e => setCurrentUnion({
-                                    ...currentUnion,
-                                    config: { ...currentUnion.config!, password: e.target.value }
-                                })}
-                            />
-                        </div>
                     </div>
+
+                    {!currentUnion.id && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded-lg">
+                            <div className="col-span-2">
+                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Crear Usuario Administrador</h4>
+                                <p className="text-xs text-blue-600 mb-2">Estos datos crearán el usuario para acceder al sistema.</p>
+                                <hr className="mb-4" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Login)</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded p-2"
+                                    value={currentUnion.config?.username || ''}
+                                    placeholder="ej. union.norte"
+                                    onChange={e => setCurrentUnion({
+                                        ...currentUnion,
+                                        config: { ...currentUnion.config!, username: e.target.value }
+                                    })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login Supabase)</label>
+                                <input
+                                    type="email"
+                                    className="w-full border border-gray-300 rounded p-2"
+                                    value={userEmail}
+                                    placeholder="ej. admin@union.org"
+                                    onChange={e => setUserEmail(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Usuario</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded p-2"
+                                    value={userName}
+                                    onChange={e => setUserName(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded p-2"
+                                    value={currentUnion.config?.password || ''}
+                                    placeholder="Contraseña segura"
+                                    onChange={e => setCurrentUnion({
+                                        ...currentUnion,
+                                        config: { ...currentUnion.config!, password: e.target.value }
+                                    })}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex justify-end space-x-2">
                         <button
                             onClick={() => setIsEditing(false)}
@@ -137,7 +223,7 @@ const AdminUnionsView: React.FC = () => {
                         </button>
                         <button
                             onClick={handleSave}
-                            className="px-4 py-2 btn btn-primary flex items-center"
+                            className="px-4 py-2 btn btn-primary flex items-center bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                             <Save size={18} className="mr-2" />
                             Guardar
@@ -176,7 +262,7 @@ const AdminUnionsView: React.FC = () => {
                         </div>
                         <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
                             <p><span className="font-semibold">User:</span> {union.config?.username}</p>
-                            <p><span className="font-semibold">Pass:</span> ••••••••</p>
+                            <p><span className="font-semibold">Pass:</span> {union.config?.password ? '••••••••' : 'N/A'}</p>
                         </div>
                     </div>
                 ))}

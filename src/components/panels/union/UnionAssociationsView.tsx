@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { useOutletContext } from 'react-router-dom';
-import { useToast } from '../../../context/ToastContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Union, Association } from '../../../types';
 import { Plus, Edit, Trash2, Save, X, Building } from 'lucide-react';
@@ -14,6 +12,8 @@ const UnionAssociationsView: React.FC = () => {
     const [associations, setAssociations] = useState<Association[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [currentAssoc, setCurrentAssoc] = useState<Partial<Association>>({});
+    const [userEmail, setUserEmail] = useState(''); // State for user email
+    const [userName, setUserName] = useState('');   // State for user full name
 
     useEffect(() => {
         if (union) {
@@ -30,6 +30,8 @@ const UnionAssociationsView: React.FC = () => {
 
     const handleEdit = (assoc: Association) => {
         setCurrentAssoc(assoc);
+        setUserEmail('');
+        setUserName(assoc.name);
         setIsEditing(true);
     };
 
@@ -41,6 +43,8 @@ const UnionAssociationsView: React.FC = () => {
             unionId: union.id,
             config: { username: '', password: '' }
         });
+        setUserEmail('');
+        setUserName('');
         setIsEditing(true);
     };
 
@@ -55,14 +59,50 @@ const UnionAssociationsView: React.FC = () => {
         try {
             if (currentAssoc.id) {
                 await backend.updateAssociation(assocToSave);
+                showToast('Asociación actualizada', 'success');
             } else {
                 // Generate ID if new
                 const newId = 'assoc-' + Math.random().toString(36).substr(2, 9);
                 await backend.addAssociation({ ...assocToSave, id: newId });
+
+                // Create User for Association
+                if (currentAssoc.config?.username && userEmail) {
+                    try {
+                        const userMetadata = {
+                            name: userName || currentAssoc.name || 'Asociación',
+                            role: 'ASOCIACION' as any,
+                            relatedEntityId: newId
+                        };
+
+                        // A. Create record in public.users
+                        await backend.createUser({
+                            username: currentAssoc.config.username,
+                            email: userEmail,
+                            name: userMetadata.name,
+                            role: userMetadata.role,
+                            relatedEntityId: newId,
+                            isActive: true,
+                            password: currentAssoc.config.password
+                        });
+
+                        // B. Create account in Supabase Auth
+                        try {
+                            await backend.createAuthUser(userEmail, currentAssoc.config.password, userMetadata);
+                            showToast('Asociación y cuenta de acceso creadas', 'success');
+                        } catch (authError: any) {
+                            console.error('Error creating auth account:', authError);
+                            showToast(`Asociación creada, pero error en Auth: ${authError.message}`, 'warning');
+                        }
+
+                    } catch (userError) {
+                        console.error('Error creating user:', userError);
+                        showToast('Asociación creada, pero error al crear usuario en BD', 'warning');
+                    }
+                }
+                showToast('Asociación guardada correctamente', 'success');
             }
             setIsEditing(false);
             loadAssociations();
-            showToast('Asociación guardada', 'success');
         } catch (error: any) {
             showToast('Error al guardar: ' + error.message, 'error');
         }
@@ -96,22 +136,67 @@ const UnionAssociationsView: React.FC = () => {
             {isEditing && (
                 <div className="bg-white p-6 rounded shadow border border-indigo-100 mb-6">
                     <h3 className="font-bold mb-4">{currentAssoc.id ? 'Editar' : 'Nueva'} Asociación</h3>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <h4 className="text-sm font-semibold text-gray-500 uppercase">Datos Asociación</h4>
+                            <hr className="mb-2" />
+                        </div>
                         <div>
-                            <label className="block text-sm text-gray-600">Nombre</label>
-                            <input className="w-full border p-2 rounded" value={currentAssoc.name || ''} onChange={e => setCurrentAssoc({ ...currentAssoc, name: e.target.value })} />
+                            <label className="block text-sm text-gray-600">Nombre Asociación</label>
+                            <input className="w-full border p-2 rounded"
+                                value={currentAssoc.name || ''}
+                                onChange={e => {
+                                    setCurrentAssoc({ ...currentAssoc, name: e.target.value });
+                                    if (!currentAssoc.id) setUserName(e.target.value);
+                                }}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm text-gray-600">Departamental (Líder)</label>
                             <input className="w-full border p-2 rounded" value={currentAssoc.departmentHead || ''} onChange={e => setCurrentAssoc({ ...currentAssoc, departmentHead: e.target.value })} />
                         </div>
+
+                        <div className="col-span-2 mt-4">
+                            <h4 className="text-sm font-semibold text-gray-500 uppercase">Datos Cuenta de Usuario</h4>
+                            <hr className="mb-2" />
+                            {!currentAssoc.id && <p className="text-xs text-blue-500 mb-2">Se creará un usuario para ingresar al sistema.</p>}
+                        </div>
+
                         <div>
                             <label className="block text-sm text-gray-600">Usuario Login</label>
-                            <input className="w-full border p-2 rounded" value={currentAssoc.config?.username || ''} onChange={e => setCurrentAssoc({ ...currentAssoc, config: { ...currentAssoc.config!, username: e.target.value } })} />
+                            <input className="w-full border p-2 rounded"
+                                placeholder="ej. asoc.central"
+                                value={currentAssoc.config?.username || ''}
+                                onChange={e => setCurrentAssoc({ ...currentAssoc, config: { ...currentAssoc.config!, username: e.target.value } })}
+                            />
                         </div>
+                        {!currentAssoc.id && (
+                            <>
+                                <div>
+                                    <label className="block text-sm text-gray-600">Email (Supabase Auth)</label>
+                                    <input className="w-full border p-2 rounded"
+                                        type="email"
+                                        placeholder="admin@asoc.org"
+                                        value={userEmail}
+                                        onChange={e => setUserEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-600">Nombre Completo Usuario</label>
+                                    <input className="w-full border p-2 rounded"
+                                        value={userName}
+                                        onChange={e => setUserName(e.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
                         <div>
                             <label className="block text-sm text-gray-600">Contraseña</label>
-                            <input className="w-full border p-2 rounded" value={currentAssoc.config?.password || ''} onChange={e => setCurrentAssoc({ ...currentAssoc, config: { ...currentAssoc.config!, password: e.target.value } })} />
+                            <input className="w-full border p-2 rounded"
+                                value={currentAssoc.config?.password || ''}
+                                onChange={e => setCurrentAssoc({ ...currentAssoc, config: { ...currentAssoc.config!, password: e.target.value } })}
+                            />
                         </div>
                     </div>
                     <div className="flex justify-end mt-4 space-x-2">
@@ -135,7 +220,8 @@ const UnionAssociationsView: React.FC = () => {
                             </div>
                         </div>
                         <div className="mt-4 text-xs text-gray-400">
-                            ID: {assoc.id}
+                            <p>User: {assoc.config?.username}</p>
+                            <p>Pass: {assoc.config?.password ? '••••••' : 'N/A'}</p>
                         </div>
                     </div>
                 ))}
