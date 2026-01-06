@@ -24,11 +24,25 @@ const AdminUnionsView: React.FC = () => {
         } catch (e) { console.error(e); }
     };
 
-    const handleEdit = (union: Union) => {
+    const handleEdit = async (union: Union) => {
         setCurrentUnion(union);
-        setUserEmail(''); // We don't easily know the email of the linked user without fetching it
-        setUserName(union.name); // Default name to union name
         setIsEditing(true);
+
+        // Fetch linked user data
+        try {
+            const allUsers = await backend.getUsers();
+            const linkedUser = allUsers.find(u => u.relatedEntityId === union.id);
+            if (linkedUser) {
+                setUserEmail(linkedUser.email || '');
+                setUserName(linkedUser.name);
+                // We keep the config from union for username/password as reference
+            } else {
+                setUserEmail('');
+                setUserName(union.name);
+            }
+        } catch (e) {
+            console.error('Error fetching linked user:', e);
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -63,6 +77,27 @@ const AdminUnionsView: React.FC = () => {
 
             if (unionId) {
                 await backend.updateUnion(currentUnion as Union);
+
+                // Also update User if credentials provided
+                if (currentUnion.config?.username) {
+                    try {
+                        const allUsers = await backend.getUsers();
+                        const existingUser = allUsers.find(u => u.relatedEntityId === unionId);
+
+                        if (existingUser) {
+                            await backend.updateUser({
+                                ...existingUser,
+                                username: currentUnion.config.username,
+                                email: userEmail,
+                                name: userName || currentUnion.name!,
+                                password: currentUnion.config.password // Store password in DB as requested
+                            });
+                        }
+                    } catch (userErr) {
+                        console.error('Error updating linked user:', userErr);
+                    }
+                }
+
                 showToast('Unión actualizada', 'success');
             } else {
                 // 1. Create Union
@@ -159,60 +194,58 @@ const AdminUnionsView: React.FC = () => {
                         </div>
                     </div>
 
-                    {!currentUnion.id && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded-lg">
-                            <div className="col-span-2">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Crear Usuario Administrador</h4>
-                                <p className="text-xs text-blue-600 mb-2">Estos datos crearán el usuario para acceder al sistema.</p>
-                                <hr className="mb-4" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Login)</label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded p-2"
-                                    value={currentUnion.config?.username || ''}
-                                    placeholder="ej. union.norte"
-                                    onChange={e => setCurrentUnion({
-                                        ...currentUnion,
-                                        config: { ...currentUnion.config!, username: e.target.value }
-                                    })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login Supabase)</label>
-                                <input
-                                    type="email"
-                                    className="w-full border border-gray-300 rounded p-2"
-                                    value={userEmail}
-                                    placeholder="ej. admin@union.org"
-                                    onChange={e => setUserEmail(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Usuario</label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded p-2"
-                                    value={userName}
-                                    onChange={e => setUserName(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded p-2"
-                                    value={currentUnion.config?.password || ''}
-                                    placeholder="Contraseña segura"
-                                    onChange={e => setCurrentUnion({
-                                        ...currentUnion,
-                                        config: { ...currentUnion.config!, password: e.target.value }
-                                    })}
-                                />
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded-lg">
+                        <div className="col-span-2">
+                            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Usuario Administrador</h4>
+                            <p className="text-xs text-blue-600 mb-2">Datos de acceso al sistema.</p>
+                            <hr className="mb-4" />
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Login)</label>
+                            <input
+                                type="text"
+                                className="w-full border border-gray-300 rounded p-2"
+                                value={currentUnion.config?.username || ''}
+                                placeholder="ej. union.norte"
+                                onChange={e => setCurrentUnion({
+                                    ...currentUnion,
+                                    config: { ...currentUnion.config!, username: e.target.value }
+                                })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login Supabase)</label>
+                            <input
+                                type="email"
+                                className="w-full border border-gray-300 rounded p-2"
+                                value={userEmail}
+                                placeholder="ej. admin@union.org"
+                                onChange={e => setUserEmail(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Usuario</label>
+                            <input
+                                type="text"
+                                className="w-full border border-gray-300 rounded p-2"
+                                value={userName}
+                                onChange={e => setUserName(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                            <input
+                                type="text"
+                                className="w-full border border-gray-300 rounded p-2"
+                                value={currentUnion.config?.password || ''}
+                                placeholder="Contraseña segura"
+                                onChange={e => setCurrentUnion({
+                                    ...currentUnion,
+                                    config: { ...currentUnion.config!, password: e.target.value }
+                                })}
+                            />
+                        </div>
+                    </div>
 
                     <div className="flex justify-end space-x-2">
                         <button

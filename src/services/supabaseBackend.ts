@@ -122,6 +122,7 @@ class SupabaseBackendService {
                     role: userData.role,
                     related_entity_id: userData.relatedEntityId,
                     email: userData.email,
+                    password: userData.password,
                     is_active: userData.isActive ?? true
                 }])
                 .select()
@@ -135,6 +136,7 @@ class SupabaseBackendService {
             return {
                 id: data.id,
                 username: data.username,
+                password: data.password,
                 name: data.name,
                 role: data.role,
                 relatedEntityId: data.related_entity_id,
@@ -157,6 +159,7 @@ class SupabaseBackendService {
                     role: user.role,
                     related_entity_id: user.relatedEntityId,
                     email: user.email,
+                    password: user.password,
                     is_active: user.isActive ?? true
                 })
                 .eq('id', user.id)
@@ -171,6 +174,7 @@ class SupabaseBackendService {
             return {
                 id: data.id,
                 username: data.username,
+                password: data.password,
                 name: data.name,
                 role: data.role,
                 relatedEntityId: data.related_entity_id,
@@ -516,6 +520,31 @@ class SupabaseBackendService {
         }
     }
 
+    async getUnionById(id: string): Promise<Union | undefined> {
+        try {
+            const { data, error } = await supabase
+                .from('unions')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (error) {
+                console.error('Error fetching union by ID:', error)
+                return undefined
+            }
+
+            return {
+                id: data.id,
+                name: data.name,
+                evangelismDepartmentHead: data.evangelism_department_head,
+                config: data.config || {}
+            }
+        } catch (error) {
+            console.error('Error fetching union by ID:', error)
+            return undefined
+        }
+    }
+
     async addUnion(union: Union): Promise<Union> {
         try {
             const { data, error } = await supabase
@@ -596,6 +625,33 @@ class SupabaseBackendService {
         } catch (error) {
             console.error('Error fetching associations:', error)
             return []
+        }
+    }
+
+    async getAssociationById(id: string): Promise<Association | undefined> {
+        try {
+            const { data, error } = await supabase
+                .from('associations')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (error) {
+                console.error('Error fetching association by ID:', error)
+                return undefined
+            }
+
+            return {
+                id: data.id,
+                name: data.name,
+                departmentHead: data.department_head,
+                unionId: data.union_id,
+                membershipCount: data.membership_count,
+                config: data.config
+            }
+        } catch (error) {
+            console.error('Error fetching association by ID:', error)
+            return undefined
         }
     }
 

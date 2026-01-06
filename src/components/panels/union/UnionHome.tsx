@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Union, Association } from '../../../types';
-import { useOutletContext } from 'react-router-dom';
 import { useBackend } from '../../../context/BackendContext';
 import { Union, Association } from '../../../types';
 import { Building, Users, Activity, FileText, UserCheck } from 'lucide-react';

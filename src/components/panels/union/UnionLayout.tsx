@@ -2,7 +2,6 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, FileText, LogOut, Network } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { useAuth } from '../../../context/AuthContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Union } from '../../../types';
 
