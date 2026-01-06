@@ -164,7 +164,7 @@ class SupabaseBackendService {
                 })
                 .eq('id', user.id)
                 .select()
-                .single()
+                .maybeSingle()
 
             if (error) {
                 console.error('Error updating user:', error)
@@ -267,10 +267,10 @@ class SupabaseBackendService {
                 .from('small_groups')
                 .select('*')
                 .eq('id', id)
-                .single()
+                .maybeSingle()
 
-            if (error) {
-                console.error('Error fetching GP:', error)
+            if (error || !data) {
+                if (error) console.error('Error fetching GP:', error)
                 return undefined
             }
 
@@ -311,7 +311,7 @@ class SupabaseBackendService {
                     goals: gpData.goals
                 }])
                 .select()
-                .single()
+                .maybeSingle()
 
             if (error) {
                 console.error('Error creating GP:', error)
@@ -351,7 +351,7 @@ class SupabaseBackendService {
                 })
                 .eq('id', gp.id)
                 .select()
-                .single()
+                .maybeSingle()
 
             if (error) {
                 console.error('Error updating GP:', error)
@@ -465,7 +465,7 @@ class SupabaseBackendService {
                     friend_progress: member.friendProgress || {}
                 }])
                 .select()
-                .single()
+                .maybeSingle()
 
             if (error) {
                 console.error('Error adding member:', error)
@@ -526,10 +526,10 @@ class SupabaseBackendService {
                 .from('unions')
                 .select('*')
                 .eq('id', id)
-                .single()
+                .maybeSingle()
 
-            if (error) {
-                console.error('Error fetching union by ID:', error)
+            if (error || !data) {
+                if (error) console.error('Error fetching union by ID:', error)
                 return undefined
             }
 
@@ -556,9 +556,9 @@ class SupabaseBackendService {
                     config: union.config
                 }])
                 .select()
-                .single()
+                .maybeSingle()
 
-            if (error) throw error
+            if (error || !data) throw error || new Error('Failed to create union')
 
             return {
                 id: data.id,
@@ -583,9 +583,9 @@ class SupabaseBackendService {
                 })
                 .eq('id', union.id)
                 .select()
-                .single()
+                .maybeSingle()
 
-            if (error) throw error
+            if (error || !data) throw error || new Error('Failed to update union')
 
             return {
                 id: data.id,
@@ -634,10 +634,10 @@ class SupabaseBackendService {
                 .from('associations')
                 .select('*')
                 .eq('id', id)
-                .single()
+                .maybeSingle()
 
-            if (error) {
-                console.error('Error fetching association by ID:', error)
+            if (error || !data) {
+                if (error) console.error('Error fetching association by ID:', error)
                 return undefined
             }
 
@@ -668,8 +668,8 @@ class SupabaseBackendService {
                     config: assoc.config
                 }])
                 .select()
-                .single()
-            if (error) throw error
+                .maybeSingle()
+            if (error || !data) throw error || new Error('Failed to create association')
             return {
                 id: data.id,
                 name: data.name,
@@ -694,8 +694,8 @@ class SupabaseBackendService {
                 })
                 .eq('id', assoc.id)
                 .select()
-                .single()
-            if (error) throw error
+                .maybeSingle()
+            if (error || !data) throw error || new Error('Failed to update association')
             return {
                 id: data.id,
                 name: data.name,
@@ -727,8 +727,8 @@ class SupabaseBackendService {
     async addZone(zone: Zone): Promise<Zone> {
         const { data, error } = await supabase.from('zones').insert([{
             id: zone.id, name: zone.name, director_id: zone.directorId, association_id: zone.associationId, goals: zone.goals
-        }]).select().single();
-        if (error) throw error;
+        }]).select().maybeSingle();
+        if (error || !data) throw error || new Error('Failed to create zone');
         return { id: data.id, name: data.name, directorId: data.director_id, associationId: data.association_id, goals: data.goals };
     }
 
@@ -760,8 +760,8 @@ class SupabaseBackendService {
     async addDistrict(district: District): Promise<District> {
         const { data, error } = await supabase.from('districts').insert([{
             id: district.id, name: district.name, pastor_id: district.pastorId, zone_id: district.zoneId, goals: district.goals
-        }]).select().single();
-        if (error) throw error;
+        }]).select().maybeSingle();
+        if (error || !data) throw error || new Error('Failed to create district');
         return { id: data.id, name: data.name, pastorId: data.pastor_id, zoneId: data.zone_id, goals: data.goals };
     }
 
@@ -793,8 +793,8 @@ class SupabaseBackendService {
     async addChurch(church: Church): Promise<Church> {
         const { data, error } = await supabase.from('churches').insert([{
             id: church.id, name: church.name, district_id: church.districtId, director_id: church.directorId, address: church.address
-        }]).select().single();
-        if (error) throw error;
+        }]).select().maybeSingle();
+        if (error || !data) throw error || new Error('Failed to create church');
         return { id: data.id, name: data.name, districtId: data.district_id, directorId: data.director_id, address: data.address };
     }
 
@@ -826,8 +826,8 @@ class SupabaseBackendService {
     async createMissionaryPair(pair: MissionaryPair): Promise<MissionaryPair> {
         const { data, error } = await supabase.from('missionary_pairs').insert([{
             id: pair.id, gp_id: pair.gpId, member1_id: pair.member1Id, member2_id: pair.member2Id, studies_given: pair.studiesGiven
-        }]).select().single();
-        if (error) throw error;
+        }]).select().maybeSingle();
+        if (error || !data) throw error || new Error('Failed to create missionary pair');
         return {
             id: data.id,
             gpId: data.gp_id,
@@ -867,9 +867,9 @@ class SupabaseBackendService {
             studies: report.studies,
             summary: report.summary,
             missionary_pairs_stats: report.missionaryPairsStats
-        }]).select().single();
+        }]).select().maybeSingle();
 
-        if (error) throw error;
+        if (error || !data) throw error || new Error('Failed to create report');
         return {
             id: data.id,
             gpId: data.gp_id,

@@ -85,6 +85,13 @@ const AdminAssociationsView: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        const emailToUse = userEmail || formData.email;
+        const isNew = !editingAssoc;
+        if (!formData.name || !formData.unionId || !formData.username || (isNew && !formData.password) || !emailToUse) {
+            showToast('Complete los campos requeridos (Nombre, Unión, Usuario, Email' + (isNew ? ' y Contraseña' : '') + ')', 'warning');
+            return;
+        }
+
         try {
             if (editingAssoc) {
                 // Update

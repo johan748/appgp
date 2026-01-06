@@ -64,8 +64,11 @@ const UnionAssociationsView: React.FC = () => {
     };
 
     const handleSave = async () => {
-        if (!currentAssoc.name || !currentAssoc.config?.username) {
-            showToast('Complete los campos requeridos', 'warning');
+        const isNew = !currentAssoc.id;
+        const password = currentAssoc.config?.password;
+
+        if (!currentAssoc.name || !currentAssoc.config?.username || !userEmail || (isNew && !password)) {
+            showToast('Complete los campos requeridos (Nombre, Usuario, Email' + (isNew ? ' y Contraseña' : '') + ')', 'warning');
             return;
         }
 
