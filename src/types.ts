@@ -129,6 +129,10 @@ export interface WeeklyReport {
         pairId: string;
         studiesGiven: number;
     }[];
+    studies: {
+        memberId: string;
+        detail: string;
+    }[];
     baptisms: number;
     summary: {
         totalAttendance: number;

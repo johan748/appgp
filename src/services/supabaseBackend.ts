@@ -20,7 +20,7 @@ class SupabaseBackendService {
                     .from('users')
                     .select('*')
                     .eq('username', username)
-                    .single()
+                    .maybeSingle()
 
                 if (userError || !userData) {
                     return null
@@ -44,7 +44,7 @@ class SupabaseBackendService {
                     .from('users')
                     .select('*')
                     .eq('email', authResult.data.user.email)
-                    .single()
+                    .maybeSingle()
 
                 if (profileError) {
                     console.error('Error fetching user profile:', profileError)
@@ -126,7 +126,7 @@ class SupabaseBackendService {
                     is_active: userData.isActive ?? true
                 }])
                 .select()
-                .single()
+                .maybeSingle()
 
             if (error) {
                 console.error('Error creating user:', error)
@@ -819,7 +819,8 @@ class SupabaseBackendService {
             gpId: p.gp_id,
             member1Id: p.member1_id,
             member2Id: p.member2_id,
-            studiesGiven: p.studies_given
+            studiesGiven: p.studies_given,
+            createdAt: p.created_at || new Date().toISOString()
         }))
     }
     async createMissionaryPair(pair: MissionaryPair): Promise<MissionaryPair> {
@@ -827,7 +828,14 @@ class SupabaseBackendService {
             id: pair.id, gp_id: pair.gpId, member1_id: pair.member1Id, member2_id: pair.member2Id, studies_given: pair.studiesGiven
         }]).select().single();
         if (error) throw error;
-        return { id: data.id, gpId: data.gp_id, member1Id: data.member1_id, member2Id: data.member2_id, studiesGiven: data.studies_given };
+        return {
+            id: data.id,
+            gpId: data.gp_id,
+            member1Id: data.member1_id,
+            member2Id: data.member2_id,
+            studiesGiven: data.studies_given,
+            createdAt: data.created_at || new Date().toISOString()
+        };
     }
     async deleteMissionaryPair(id: string): Promise<void> {
         const { error } = await supabase.from('missionary_pairs').delete().eq('id', id);
@@ -842,11 +850,11 @@ class SupabaseBackendService {
             id: r.id,
             gpId: r.gp_id,
             date: r.date,
-            attendance: r.attendance,
-            studies: r.studies,
-            summary: r.summary,
-            missionaryPairsStats: r.missionary_pairs_stats,
-            baptisms: r.summary?.baptisms || 0
+            attendance: r.attendance || [],
+            studies: r.studies || [], // Ensure studies exists
+            summary: r.summary || { totalAttendance: 0, totalStudies: 0, totalGuests: 0, baptisms: 0 },
+            missionaryPairsStats: r.missionary_pairs_stats || [],
+            baptisms: r.baptisms || r.summary?.baptisms || 0
         }))
     }
     async createReport(report: Omit<WeeklyReport, 'id'>): Promise<WeeklyReport> {
@@ -868,8 +876,9 @@ class SupabaseBackendService {
             date: data.date,
             attendance: data.attendance || [],
             studies: data.studies || [],
-            summary: data.summary || { totalAttendance: 0, totalStudies: 0, baptisms: 0 },
-            missionaryPairsStats: data.missionary_pairs_stats || []
+            summary: data.summary || { totalAttendance: 0, totalStudies: 0, totalGuests: 0, baptisms: 0 },
+            missionaryPairsStats: data.missionary_pairs_stats || [],
+            baptisms: data.baptisms || data.summary?.baptisms || 0
         };
     }
     async updateReport(report: any): Promise<void> {
