@@ -93,8 +93,13 @@ const AssociationZonesView: React.FC = () => {
                     const directorUser = users.find(u => u.relatedEntityId === updatedZone.id && u.role === 'DIRECTOR_ZONA');
 
                     if (directorUser) {
-                        const updatedUser = { ...directorUser, name: formData.directorName, username: formData.username };
-                        if (formData.password) updatedUser.password = formData.password;
+                        const updatedUser = {
+                            ...directorUser,
+                            name: formData.directorName,
+                            username: formData.username,
+                            email: formData.email,
+                            password: formData.password || directorUser.password // Keep existing password if not provided
+                        };
                         await backend.updateUser(updatedUser);
                     } else {
                         // Create if missing
@@ -102,12 +107,14 @@ const AssociationZonesView: React.FC = () => {
                             await backend.createUser({
                                 username: formData.username,
                                 password: formData.password || 'password',
-                                role: 'DIRECTOR_ZONA',
+                                email: formData.email,
+                                role: 'DIRECTOR_ZONA' as any,
                                 relatedEntityId: updatedZone.id,
-                                name: formData.directorName
+                                name: formData.directorName,
+                                isActive: true
                             });
                         } catch (e) {
-                            console.error("Error updating/creating user for zone", e);
+                            console.error("Error creating missing user for zone", e);
                         }
                     }
                 }

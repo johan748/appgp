@@ -133,13 +133,18 @@ const AssociationDistrictsView: React.FC = () => {
 
                 await backend.updateDistrict(updatedDistrict);
 
-                // Update Pastor User if changed
+                // Update Pastor User
                 if (formData.username) {
                     const users = await backend.getUsers();
                     const pastorUser = users.find(u => u.relatedEntityId === updatedDistrict.id && u.role === 'PASTOR');
                     if (pastorUser) {
-                        const updatedUser = { ...pastorUser, name: formData.pastorName, username: formData.username };
-                        if (formData.password) updatedUser.password = formData.password;
+                        const updatedUser = {
+                            ...pastorUser,
+                            name: formData.pastorName,
+                            username: formData.username,
+                            email: formData.email,
+                            password: formData.password || pastorUser.password // Keep existing password if not provided
+                        };
                         await backend.updateUser(updatedUser);
                     } else {
                         // Create if missing
@@ -150,9 +155,12 @@ const AssociationDistrictsView: React.FC = () => {
                                 password: formData.password || 'password',
                                 role: 'PASTOR' as any,
                                 relatedEntityId: updatedDistrict.id,
-                                name: formData.pastorName
+                                name: formData.pastorName,
+                                isActive: true
                             });
-                        } catch (e) { console.error("Error creating missing pastor user", e); }
+                        } catch (e) {
+                            console.error("Error creating missing pastor user for district", e);
+                        }
                     }
                 }
 

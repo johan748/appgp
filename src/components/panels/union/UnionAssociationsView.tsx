@@ -28,11 +28,26 @@ const UnionAssociationsView: React.FC = () => {
         } catch (e) { console.error(e); }
     };
 
-    const handleEdit = (assoc: Association) => {
+    const handleEdit = async (assoc: Association) => {
         setCurrentAssoc(assoc);
-        setUserEmail('');
-        setUserName(assoc.name);
         setIsEditing(true);
+
+        // Fetch linked user data
+        try {
+            const allUsers = await backend.getUsers();
+            const linkedUser = allUsers.find(u => u.relatedEntityId === assoc.id);
+            if (linkedUser) {
+                setUserEmail(linkedUser.email || '');
+                setUserName(linkedUser.name);
+                // Ensure config reflects current username/password from user table if possible
+                // but usually assoc.config also has it.
+            } else {
+                setUserEmail('');
+                setUserName(assoc.name);
+            }
+        } catch (e) {
+            console.error('Error fetching linked user:', e);
+        }
     };
 
     const handleCreate = () => {
@@ -58,7 +73,39 @@ const UnionAssociationsView: React.FC = () => {
 
         try {
             if (currentAssoc.id) {
+                const assocId = currentAssoc.id;
                 await backend.updateAssociation(assocToSave);
+
+                // Update Linked User
+                if (currentAssoc.config?.username) {
+                    try {
+                        const allUsers = await backend.getUsers();
+                        const existingUser = allUsers.find(u => u.relatedEntityId === assocId);
+
+                        if (existingUser) {
+                            await backend.updateUser({
+                                ...existingUser,
+                                username: currentAssoc.config.username,
+                                email: userEmail,
+                                name: userName || currentAssoc.name!,
+                                password: currentAssoc.config.password
+                            });
+                        } else {
+                            // Create if missing (fix for user's reported issue)
+                            await backend.createUser({
+                                username: currentAssoc.config.username,
+                                email: userEmail,
+                                name: userName || currentAssoc.name!,
+                                role: 'ASOCIACION' as any,
+                                relatedEntityId: assocId,
+                                isActive: true,
+                                password: currentAssoc.config.password
+                            });
+                        }
+                    } catch (userErr) {
+                        console.error('Error updating linked user:', userErr);
+                    }
+                }
                 showToast('Asociación actualizada', 'success');
             } else {
                 // Generate ID if new
@@ -171,26 +218,22 @@ const UnionAssociationsView: React.FC = () => {
                                 onChange={e => setCurrentAssoc({ ...currentAssoc, config: { ...currentAssoc.config!, username: e.target.value } })}
                             />
                         </div>
-                        {!currentAssoc.id && (
-                            <>
-                                <div>
-                                    <label className="block text-sm text-gray-600">Email (Supabase Auth)</label>
-                                    <input className="w-full border p-2 rounded"
-                                        type="email"
-                                        placeholder="admin@asoc.org"
-                                        value={userEmail}
-                                        onChange={e => setUserEmail(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-600">Nombre Completo Usuario</label>
-                                    <input className="w-full border p-2 rounded"
-                                        value={userName}
-                                        onChange={e => setUserName(e.target.value)}
-                                    />
-                                </div>
-                            </>
-                        )}
+                        <div>
+                            <label className="block text-sm text-gray-600">Email (Acceso)</label>
+                            <input className="w-full border p-2 rounded"
+                                type="email"
+                                placeholder="admin@asoc.org"
+                                value={userEmail}
+                                onChange={e => setUserEmail(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-600">Nombre Completo Usuario</label>
+                            <input className="w-full border p-2 rounded"
+                                value={userName}
+                                onChange={e => setUserName(e.target.value)}
+                            />
+                        </div>
                         <div>
                             <label className="block text-sm text-gray-600">Contraseña</label>
                             <input className="w-full border p-2 rounded"
