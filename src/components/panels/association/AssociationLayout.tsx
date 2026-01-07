@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { useAuth } from '../../../context/AuthContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Association } from '../../../types';
 import { ArrowLeft } from 'lucide-react';

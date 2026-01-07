@@ -1,3 +1,4 @@
+/* eslint-env node */
 import { createClient } from '@supabase/supabase-js';
 
 // Vercel Serverless Function handler
@@ -26,7 +27,9 @@ export default async function handler(request, response) {
         return response.status(400).json({ error: 'Missing email or password' });
     }
 
+    // eslint-disable-next-line no-undef
     const supabaseUrl = process.env.VITE_SUPABASE_URL; // Or SUPABASE_URL if set in Vercel
+    // eslint-disable-next-line no-undef
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
