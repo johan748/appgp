@@ -1,13 +1,10 @@
 // Export all backends for easy switching during development
 export { mockBackend } from './mockBackend';
-
+export { mockBackendAsync } from './mockBackendAsync';
 export { supabaseBackend } from './supabaseBackend';
+export type { IBackendService } from './IBackendService';
 
-// Export API functions for direct use
-// Export API functions for direct use - DEPRECATED
-// export * from './api';
-
-// Configuration to determine which backend to use
+// Configuration utility to determine which backend to use
 export const getBackendType = () => {
     // Check environment variable or localStorage flag
     const backendType = import.meta.env.VITE_BACKEND_TYPE ||
@@ -16,18 +13,18 @@ export const getBackendType = () => {
     return backendType;
 };
 
-// Default export - can be switched based on configuration
-export const backend = async () => {
+/**
+ * Helper to get the implementation of the backend dynamically.
+ * Note: Components should generally use the useBackend() hook from BackendContext
+ */
+export const getBackendInstance = async () => {
     const backendType = getBackendType();
 
-    switch (backendType) {
-
-        case 'supabase':
-            const supabaseModule = await import('./supabaseBackend');
-            return supabaseModule.supabaseBackend;
-        case 'mock':
-        default:
-            const mockModule = await import('./mockBackend');
-            return mockModule.mockBackend;
+    if (backendType === 'supabase') {
+        const module = await import('./supabaseBackend');
+        return module.supabaseBackend;
+    } else {
+        const module = await import('./mockBackendAsync');
+        return module.mockBackendAsync;
     }
 };
