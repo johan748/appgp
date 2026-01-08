@@ -81,75 +81,57 @@ const UnionAssociationsView: React.FC = () => {
 
                 // Update Linked User
                 if (currentAssoc.config?.username) {
-                    try {
-                        const allUsers = await backend.getUsers();
-                        const existingUser = allUsers.find(u => u.relatedEntityId === assocId);
+                    const allUsers = await backend.getUsers();
+                    const existingUser = allUsers.find(u => u.relatedEntityId === assocId);
 
-                        if (existingUser) {
-                            await backend.updateUser({
-                                ...existingUser,
-                                username: currentAssoc.config.username,
-                                email: userEmail,
-                                name: userName || currentAssoc.name!,
-                                password: currentAssoc.config.password
-                            });
-                        } else {
-                            // Create if missing (fix for user's reported issue)
-                            await backend.createUser({
-                                username: currentAssoc.config.username,
-                                email: userEmail,
-                                name: userName || currentAssoc.name!,
-                                role: 'ASOCIACION' as any,
-                                relatedEntityId: assocId,
-                                isActive: true,
-                                password: currentAssoc.config.password
-                            });
-                        }
-                    } catch (userErr) {
-                        console.error('Error updating linked user:', userErr);
+                    if (existingUser) {
+                        await backend.updateUser({
+                            ...existingUser,
+                            username: currentAssoc.config.username,
+                            email: userEmail,
+                            name: userName || currentAssoc.name!,
+                            password: currentAssoc.config.password
+                        });
+                    } else {
+                        await backend.createUser({
+                            username: currentAssoc.config.username,
+                            email: userEmail,
+                            name: userName || currentAssoc.name!,
+                            role: 'ASOCIACION' as any,
+                            relatedEntityId: assocId,
+                            isActive: true,
+                            password: currentAssoc.config.password
+                        });
                     }
                 }
-                showToast('Asociación actualizada', 'success');
+                showToast('Asociación y cuenta actualizadas', 'success');
             } else {
                 // Generate ID if new
                 const newId = 'assoc-' + Math.random().toString(36).substr(2, 9);
                 await backend.addAssociation({ ...assocToSave, id: newId });
 
                 // Create User for Association
-                if (currentAssoc.config?.username && userEmail) {
-                    try {
-                        const userMetadata = {
-                            name: userName || currentAssoc.name || 'Asociación',
-                            role: 'ASOCIACION' as any,
-                            relatedEntityId: newId
-                        };
+                const userMetadata = {
+                    name: userName || currentAssoc.name || 'Asociación',
+                    role: 'ASOCIACION' as any,
+                    relatedEntityId: newId
+                };
 
-                        // A. Create record in public.users
-                        await backend.createUser({
-                            username: currentAssoc.config.username,
-                            email: userEmail,
-                            name: userMetadata.name,
-                            role: userMetadata.role,
-                            relatedEntityId: newId,
-                            isActive: true,
-                            password: currentAssoc.config.password
-                        });
+                // A. Create record in public.users
+                await backend.createUser({
+                    username: currentAssoc.config!.username!,
+                    email: userEmail,
+                    name: userMetadata.name,
+                    role: userMetadata.role,
+                    relatedEntityId: newId,
+                    isActive: true,
+                    password: currentAssoc.config!.password!
+                });
 
-                        // B. Create account in Supabase Auth
-                        try {
-                            await backend.createAuthUser(userEmail, currentAssoc.config.password, userMetadata);
-                            showToast('Asociación y cuenta de acceso creadas', 'success');
-                        } catch (authError: any) {
-                            console.error('Error creating auth account:', authError);
-                            showToast(`Asociación creada, pero error en Auth: ${authError.message}`, 'warning');
-                        }
+                // B. Create account in Supabase Auth
+                await backend.createAuthUser(userEmail, currentAssoc.config!.password!, userMetadata);
 
-                    } catch (userError) {
-                        console.error('Error creating user:', userError);
-                        showToast('Asociación creada, pero error al crear usuario en BD', 'warning');
-                    }
-                }
-                showToast('Asociación guardada correctamente', 'success');
+                showToast('Asociación y cuenta de acceso creadas con éxito', 'success');
             }
             setIsEditing(false);
             loadAssociations();

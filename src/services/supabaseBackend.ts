@@ -128,9 +128,9 @@ class SupabaseBackendService {
                 .select()
                 .maybeSingle()
 
-            if (error) {
-                console.error('Error creating user:', error)
-                throw error
+            if (error || !data) {
+                console.error('Error creating user record:', error || 'No data returned')
+                throw error || new Error('No se pudo crear el registro de usuario')
             }
 
             return {
@@ -166,9 +166,9 @@ class SupabaseBackendService {
                 .select()
                 .maybeSingle()
 
-            if (error) {
-                console.error('Error updating user:', error)
-                throw error
+            if (error || !data) {
+                console.error('Error updating user record:', error || 'No data returned')
+                throw error || new Error('No se pudo actualizar el registro de usuario')
             }
 
             return {

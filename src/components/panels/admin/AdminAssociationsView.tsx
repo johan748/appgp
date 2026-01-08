@@ -108,21 +108,18 @@ const AdminAssociationsView: React.FC = () => {
                 await backend.updateAssociation(updated);
 
                 // Update User
-                try {
-                    const allUsers = await backend.getUsers();
-                    const existingUser = allUsers.find(u => u.relatedEntityId === editingAssoc.id);
-                    if (existingUser) {
-                        await backend.updateUser({
-                            ...existingUser,
-                            username: formData.username,
-                            email: userEmail || formData.email,
-                            name: userName || formData.name,
-                            password: formData.password
-                        });
-                    }
-                } catch (userErr) { console.error(userErr); }
-
-                showToast('Asociación actualizada', 'success');
+                const allUsers = await backend.getUsers();
+                const existingUser = allUsers.find(u => u.relatedEntityId === editingAssoc.id);
+                if (existingUser) {
+                    await backend.updateUser({
+                        ...existingUser,
+                        username: formData.username,
+                        email: userEmail || formData.email,
+                        name: userName || formData.name,
+                        password: formData.password
+                    });
+                }
+                showToast('Asociación y cuenta actualizadas', 'success');
             } else {
                 // Create
                 const assocId = 'assoc-' + Math.random().toString(36).substr(2, 9);
@@ -141,30 +138,27 @@ const AdminAssociationsView: React.FC = () => {
                 await backend.addAssociation(newAssoc);
 
                 // Create User
-                if (formData.username && formData.password && (userEmail || formData.email)) {
-                    const email = userEmail || formData.email;
-                    const metadata = {
-                        name: userName || formData.name,
-                        role: 'ASOCIACION' as any,
-                        relatedEntityId: assocId
-                    };
+                const email = userEmail || formData.email;
+                const metadata = {
+                    name: userName || formData.name,
+                    role: 'ASOCIACION' as any,
+                    relatedEntityId: assocId
+                };
 
-                    await backend.createUser({
-                        username: formData.username,
-                        email: email,
-                        name: metadata.name,
-                        role: metadata.role,
-                        relatedEntityId: assocId,
-                        password: formData.password,
-                        isActive: true
-                    });
+                await backend.createUser({
+                    username: formData.username,
+                    email: email,
+                    name: metadata.name,
+                    role: metadata.role,
+                    relatedEntityId: assocId,
+                    password: formData.password,
+                    isActive: true
+                });
 
-                    try {
-                        await backend.createAuthUser(email, formData.password, metadata);
-                    } catch (authErr) { console.error(authErr); }
-                }
+                // This will throw if Auth creation fails, catching in the outer block
+                await backend.createAuthUser(email, formData.password, metadata);
 
-                showToast('Asociación creada exitosamente', 'success');
+                showToast('Asociación y cuenta de acceso creadas exitosamente', 'success');
             }
 
             setIsModalOpen(false);
