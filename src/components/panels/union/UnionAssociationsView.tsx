@@ -4,6 +4,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Union, Association } from '../../../types';
 import { Plus, Edit, Trash2, Save, X, Building } from 'lucide-react';
+import ConfirmationModal from '../../ui/ConfirmationModal';
 
 const UnionAssociationsView: React.FC = () => {
     const { union } = useOutletContext<{ union: Union }>();
@@ -12,8 +13,10 @@ const UnionAssociationsView: React.FC = () => {
     const [associations, setAssociations] = useState<Association[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [currentAssoc, setCurrentAssoc] = useState<Partial<Association>>({});
-    const [userEmail, setUserEmail] = useState(''); // State for user email
-    const [userName, setUserName] = useState('');   // State for user full name
+    const [userEmail, setUserEmail] = useState('');   // State for user email
+    const [userName, setUserName] = useState('');     // State for user full name
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         if (union) {
@@ -141,14 +144,21 @@ const UnionAssociationsView: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Eliminar asoc?')) {
-            try {
-                await backend.deleteAssociation(id);
-                loadAssociations();
-                showToast('Asociación eliminada', 'success');
-            } catch (error: any) {
-                showToast('Error al eliminar', 'error');
-            }
+        setDeleteId(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await backend.deleteAssociation(deleteId);
+            loadAssociations();
+            showToast('Asociación eliminada', 'success');
+        } catch (error: any) {
+            showToast('Error al eliminar', 'error');
+        } finally {
+            setShowDeleteModal(false);
+            setDeleteId(null);
         }
     };
 
@@ -255,6 +265,16 @@ const UnionAssociationsView: React.FC = () => {
                 ))}
                 {associations.length === 0 && <p className="col-span-3 text-center text-gray-500 py-10">No hay asociaciones registradas en esta Unión.</p>}
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                title="¿Eliminar Asociación?"
+                message="¿Estás seguro de que deseas eliminar esta asociación? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                cancelLabel="Cancelar"
+                onConfirm={confirmDelete}
+                onCancel={() => setShowDeleteModal(false)}
+            />
         </div>
     );
 };

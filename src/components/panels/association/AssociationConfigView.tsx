@@ -21,14 +21,19 @@ const AssociationConfigView: React.FC = () => {
     const [annualBaptismGoal, setAnnualBaptismGoal] = useState(association.config.annualBaptismGoal || 0);
 
     // Sync state if association changes (e.g. after refresh)
+    // Initialize state only when the association ID changes
+    const prevAssocIdRef = React.useRef<string | null>(null);
     React.useEffect(() => {
-        setAssocName(association.name);
-        setDepartmentHead(association.departmentHead || '');
-        setMembershipCount(association.membershipCount || 0);
-        setUsername(association.config.username);
-        setPassword(association.config.password);
-        setAnnualBaptismGoal(association.config.annualBaptismGoal || 0);
-
+        if (association.id !== prevAssocIdRef.current) {
+            prevAssocIdRef.current = association.id;
+            setAssocName(association.name);
+            setDepartmentHead(association.departmentHead || '');
+            setMembershipCount(association.membershipCount || 0);
+            setUsername(association.config.username);
+            setPassword(association.config.password);
+            setAnnualBaptismGoal(association.config.annualBaptismGoal || 0);
+        }
+        // Load union name (does not affect form fields)
         const loadUnion = async () => {
             if (association.unionId) {
                 try {
@@ -38,7 +43,7 @@ const AssociationConfigView: React.FC = () => {
             }
         };
         loadUnion();
-    }, [association, backend]);
+    }, [association.id, association.unionId, backend]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -96,7 +101,7 @@ const AssociationConfigView: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Membresía Total Actual</label>
-                            <input type="number" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            <input type="number" min={0} step={1} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                 value={membershipCount} onChange={e => setMembershipCount(Number(e.target.value))} />
                         </div>
                     </div>
@@ -110,7 +115,7 @@ const AssociationConfigView: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Meta Anual de Bautismos (Asociación)</label>
-                            <input type="number" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            <input type="number" min={0} step={1} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                 value={annualBaptismGoal} onChange={e => setAnnualBaptismGoal(Number(e.target.value))} />
                             <p className="text-xs text-gray-500 mt-1">Este valor se usará para medir el progreso global.</p>
                         </div>

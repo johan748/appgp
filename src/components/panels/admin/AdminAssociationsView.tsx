@@ -2,6 +2,7 @@ import { useBackend } from '../../../context/BackendContext';
 import { useToast } from '../../../context/ToastContext';
 import { Association, Union } from '../../../types';
 import { Building, Plus, User, Save, Trash2, Edit, X } from 'lucide-react';
+import ConfirmationModal from '../../ui/ConfirmationModal';
 
 const AdminAssociationsView: React.FC = () => {
     const { backend } = useBackend();
@@ -19,6 +20,8 @@ const AdminAssociationsView: React.FC = () => {
     });
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState('');
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const [unions, setUnions] = useState<Union[]>([]);
 
@@ -170,14 +173,21 @@ const AdminAssociationsView: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('¿Eliminar esta asociación?')) {
-            try {
-                await backend.deleteAssociation(id);
-                loadData();
-                showToast('Asociación eliminada', 'success');
-            } catch (e) {
-                showToast('Error al eliminar', 'error');
-            }
+        setDeleteId(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await backend.deleteAssociation(deleteId);
+            loadData();
+            showToast('Asociación eliminada', 'success');
+        } catch (e) {
+            showToast('Error al eliminar', 'error');
+        } finally {
+            setShowDeleteModal(false);
+            setDeleteId(null);
         }
     };
 
@@ -282,6 +292,16 @@ const AdminAssociationsView: React.FC = () => {
                     </div>
                 </div >
             )}
+
+<ConfirmationModal
+    isOpen={showDeleteModal}
+    title="¿Eliminar Asociación?"
+    message="¿Estás seguro de que deseas eliminar esta asociación? Esta acción no se puede deshacer."
+    confirmLabel="Eliminar"
+    cancelLabel="Cancelar"
+    onConfirm={confirmDelete}
+    onCancel={() => setShowDeleteModal(false)}
+/>
         </div >
     );
 };

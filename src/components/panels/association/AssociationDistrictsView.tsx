@@ -182,7 +182,7 @@ const AssociationDistrictsView: React.FC = () => {
                     id: districtId,
                     name: formData.name,
                     zoneId: formData.zoneId,
-                    pastorId: '',
+                    pastorId: null,
                     goals: formData.goals
                 };
 

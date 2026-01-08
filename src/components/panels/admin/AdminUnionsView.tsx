@@ -3,6 +3,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useBackend } from '../../../context/BackendContext';
 import { Union } from '../../../types';
 import { Plus, Edit, Trash2, Save, Building } from 'lucide-react';
+import ConfirmationModal from '../../ui/ConfirmationModal';
 
 const AdminUnionsView: React.FC = () => {
     const { showToast } = useToast();
@@ -12,6 +13,8 @@ const AdminUnionsView: React.FC = () => {
     const [currentUnion, setCurrentUnion] = useState<Partial<Union>>({});
     const [userEmail, setUserEmail] = useState(''); // State for user email
     const [userName, setUserName] = useState('');   // State for user full name
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         loadUnions();
@@ -46,12 +49,21 @@ const AdminUnionsView: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('¿Estás seguro de eliminar esta Unión? Esto podría afectar a las asociaciones vinculadas.')) {
-            try {
-                await backend.deleteUnion(id);
-                loadUnions();
-                showToast('Unión eliminada', 'success');
-            } catch (e) { showToast('Error al eliminar', 'error'); }
+        setDeleteId(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await backend.deleteUnion(deleteId);
+            loadUnions();
+            showToast('Unión eliminada', 'success');
+        } catch (e) {
+            showToast('Error al eliminar', 'error');
+        } finally {
+            setShowDeleteModal(false);
+            setDeleteId(null);
         }
     };
 
@@ -300,6 +312,16 @@ const AdminUnionsView: React.FC = () => {
                     </div>
                 ))}
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                title="¿Eliminar Unión?"
+                message="¿Estás seguro de que deseas eliminar esta Unión? Esto podría afectar a las asociaciones vinculadas. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                cancelLabel="Cancelar"
+                onConfirm={confirmDelete}
+                onCancel={() => setShowDeleteModal(false)}
+            />
         </div>
     );
 };
