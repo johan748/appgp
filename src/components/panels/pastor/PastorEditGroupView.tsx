@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, SmallGroup, Church } from '../../../types';
 import { Save } from 'lucide-react';
 
@@ -9,33 +9,45 @@ const PastorEditGroupView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
-    const [gps, setGps] = useState<SmallGroup[]>([]);
+    const [allGps, setAllGps] = useState<SmallGroup[]>([]);
+    const [filteredGps, setFilteredGps] = useState<SmallGroup[]>([]);
     const [selectedGpId, setSelectedGpId] = useState('');
 
     const [formData, setFormData] = useState<SmallGroup | null>(null);
 
     useEffect(() => {
-        // Load churches
-        const allChurches = mockBackend.getChurches();
-        setChurches(allChurches.filter(c => c.districtId === district.id));
-    }, [district.id]);
+        const loadInitialData = async () => {
+            if (!district) return;
+            try {
+                const allChurches = await backend.getChurches();
+                setChurches(allChurches.filter(c => c.districtId === district.id));
+
+                const gps = await backend.getGPs();
+                setAllGps(gps);
+            } catch (error) {
+                console.error("Error loading initial data:", error);
+            }
+        };
+        loadInitialData();
+    }, [district, backend]);
 
     useEffect(() => {
         if (selectedChurchId) {
-            setGps(mockBackend.getGPs().filter(g => g.churchId === selectedChurchId));
-            setSelectedGpId(''); // Reset selection
+            setFilteredGps(allGps.filter(g => g.churchId === selectedChurchId));
+            setSelectedGpId('');
             setFormData(null);
         } else {
-            setGps([]);
+            setFilteredGps([]);
             setFormData(null);
         }
-    }, [selectedChurchId]);
+    }, [selectedChurchId, allGps]);
 
     const handleGpSelect = (id: string) => {
         setSelectedGpId(id);
-        const gp = gps.find(g => g.id === id);
+        const gp = filteredGps.find(g => g.id === id);
         if (gp) {
             setFormData(JSON.parse(JSON.stringify(gp))); // Deep copy
         }
@@ -56,12 +68,20 @@ const PastorEditGroupView: React.FC = () => {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData) {
-            mockBackend.updateGP(formData);
-            showToast('Grupo actualizado exitosamente', 'success');
-            // navigate('/pastor/groups'); // Optional redirect
+            try {
+                await backend.updateGP(formData);
+                showToast('Grupo actualizado exitosamente', 'success');
+
+                // Refresh local data
+                const updatedGPs = await backend.getGPs();
+                setAllGps(updatedGPs);
+            } catch (error) {
+                console.error("Error updating GP:", error);
+                showToast('Error al actualizar el grupo', 'error');
+            }
         }
     };
 
@@ -96,7 +116,7 @@ const PastorEditGroupView: React.FC = () => {
                         disabled={!selectedChurchId}
                     >
                         <option value="">Seleccione un GP...</option>
-                        {gps.map(g => (
+                        {filteredGps.map(g => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
@@ -115,7 +135,7 @@ const PastorEditGroupView: React.FC = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Lema</label>
                             <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                value={formData.motto} onChange={e => setFormData({ ...formData!, motto: e.target.value })} />
+                                value={formData.motto || ''} onChange={e => setFormData({ ...formData!, motto: e.target.value })} />
                         </div>
                     </div>
 
@@ -137,12 +157,12 @@ const PastorEditGroupView: React.FC = () => {
                                     </div>
                                     <div className="w-1/3">
                                         <input type="number" min="0" className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                            value={(formData.goals as any)[goal.key].target}
+                                            value={(formData.goals as any)[goal.key]?.target || 0}
                                             onChange={e => handleGoalChange(goal.key, 'target', e.target.value)} />
                                     </div>
                                     <div className="w-1/3">
                                         <select className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                            value={(formData.goals as any)[goal.key].period}
+                                            value={(formData.goals as any)[goal.key]?.period || 'Anual'}
                                             onChange={e => handleGoalChange(goal.key, 'period', e.target.value)}>
                                             {periods.map(p => <option key={p} value={p}>{p}</option>)}
                                         </select>

@@ -291,31 +291,27 @@ class SupabaseBackendService {
         }
     }
 
-    async createGP(gpData: Omit<SmallGroup, 'id'>): Promise<SmallGroup> {
+    async createGP(gpData: SmallGroup): Promise<SmallGroup> {
         try {
-            const currentUserId = await getCurrentUserId()
-            if (!currentUserId) {
-                throw new Error('Usuario no autenticado')
-            }
-
             const { data, error } = await supabase
                 .from('small_groups')
                 .insert([{
+                    id: gpData.id || `gp-${Math.random().toString(36).substr(2, 9)}`,
                     name: gpData.name,
                     motto: gpData.motto,
                     verse: gpData.verse,
                     meeting_day: gpData.meetingDay,
                     meeting_time: gpData.meetingTime,
                     church_id: gpData.churchId,
-                    leader_id: currentUserId, // Usar el ID del usuario actual
+                    leader_id: gpData.leaderId, // Use the provided leaderId (User UUID)
                     goals: gpData.goals
                 }])
                 .select()
                 .maybeSingle()
 
-            if (error) {
-                console.error('Error creating GP:', error)
-                throw error
+            if (error || !data) {
+                console.error('Error creating GP:', error || 'No data returned')
+                throw error || new Error('No se pudo crear el Grupo Pequeño')
             }
 
             return {
@@ -450,6 +446,7 @@ class SupabaseBackendService {
             const { data, error } = await supabase
                 .from('members')
                 .insert([{
+                    id: member.id || `mem-${Math.random().toString(36).substr(2, 9)}`,
                     first_name: member.firstName,
                     last_name: member.lastName,
                     cedula: member.cedula,
@@ -467,9 +464,9 @@ class SupabaseBackendService {
                 .select()
                 .maybeSingle()
 
-            if (error) {
-                console.error('Error adding member:', error)
-                throw error
+            if (error || !data) {
+                console.error('Error adding member:', error || 'No data returned')
+                throw error || new Error('No se pudo añadir al miembro')
             }
 
             return {

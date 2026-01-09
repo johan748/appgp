@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { District, SmallGroup, User, Church } from '../../../types';
 import { Save } from 'lucide-react';
 
@@ -9,8 +9,10 @@ const PastorCreateGroupView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { backend } = useBackend();
     const [personnel, setPersonnel] = useState<any[]>([]);
     const [churches, setChurches] = useState<Church[]>([]);
+    const [allGPs, setAllGPs] = useState<SmallGroup[]>([]);
 
     const [formData, setFormData] = useState({
         churchId: '',
@@ -29,15 +31,28 @@ const PastorCreateGroupView: React.FC = () => {
     });
 
     useEffect(() => {
-        // Load available personnel (roles)
-        const storedPersonnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
-        setPersonnel(storedPersonnel);
+        const loadData = async () => {
+            if (!district) return;
 
-        // Load churches for this district
-        const allChurches = mockBackend.getChurches();
-        const districtChurches = allChurches.filter(c => c.districtId === district.id);
-        setChurches(districtChurches);
-    }, [district.id]);
+            // Load available personnel (roles)
+            const storedPersonnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
+            setPersonnel(storedPersonnel);
+
+            try {
+                // Load churches for this district
+                const allChurches = await backend.getChurches();
+                const districtChurches = allChurches.filter(c => c.districtId === district.id);
+                setChurches(districtChurches);
+
+                // Load all GPs for leader filtering
+                const gps = await backend.getGPs();
+                setAllGPs(gps);
+            } catch (error) {
+                console.error("Error loading data:", error);
+            }
+        };
+        loadData();
+    }, [district, backend]);
 
     const handleGoalChange = (goal: string, field: 'target' | 'period', value: any) => {
         setFormData(prev => ({
@@ -52,7 +67,7 @@ const PastorCreateGroupView: React.FC = () => {
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.churchId) {
@@ -60,53 +75,56 @@ const PastorCreateGroupView: React.FC = () => {
             return;
         }
 
-        // 1. Create the GP
-        const newGp: SmallGroup = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: formData.name,
-            motto: 'Lema por definir', // Default
-            verse: 'Versículo por definir', // Default
-            meetingDay: 'Viernes', // Default
-            meetingTime: '19:00', // Default
-            churchId: formData.churchId,
-            leaderId: formData.leaderId, // This is the ID from the personnel list
-            goals: formData.goals
-        };
+        try {
+            // 1. Generate a GP ID upfront
+            const gpId = `gp-${Math.random().toString(36).substr(2, 9)}`;
 
-        // 2. Create the User for the Leader
-        const newUser: User = {
-            id: Math.random().toString(36).substr(2, 9),
-            username: formData.username,
-            password: formData.password,
-            role: 'LIDER_GP',
-            relatedEntityId: newGp.id,
-            name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder'
-        };
-
-        // 3. Save everything
-        // Save GP
-        const gps = mockBackend.getGPs();
-        gps.push(newGp);
-        localStorage.setItem('app_gps', JSON.stringify(gps));
-
-        // Save User
-        const users = mockBackend.getUsers();
-        users.push(newUser);
-        localStorage.setItem('app_users', JSON.stringify(users));
-
-        // Move personnel to Member (if not already handled by backend logic, but here we simulate it)
-        const selectedPerson = personnel.find(p => p.id === formData.leaderId);
-        if (selectedPerson) {
-            const newMember = {
-                ...selectedPerson,
-                gpId: newGp.id,
-                role: 'LIDER'
+            // 2. Create the User for the Leader FIRST (we need the UUID for leader_id)
+            const newUserData: Omit<User, 'id'> = {
+                username: formData.username,
+                password: formData.password,
+                role: 'LIDER_GP',
+                relatedEntityId: gpId,
+                name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder',
+                email: formData.username.includes('@') ? formData.username : `${formData.username}@gp.com`,
+                isActive: true
             };
-            mockBackend.addMember(newMember);
-        }
 
-        showToast('Grupo Pequeño creado exitosamente', 'success');
-        navigate('/pastor/churches'); // Redirect to churches list or groups list
+            const createdUser = await backend.createUser(newUserData);
+
+            // 3. Create the GP
+            const newGp: SmallGroup = {
+                id: gpId,
+                name: formData.name,
+                motto: 'Lema por definir', // Default
+                verse: 'Versículo por definir', // Default
+                meetingDay: 'Viernes', // Default
+                meetingTime: '19:00', // Default
+                churchId: formData.churchId,
+                leaderId: createdUser.id, // Supabase UUID
+                goals: formData.goals
+            };
+
+            const createdGp = await backend.createGP(newGp);
+
+            // 4. Move personnel to Member (create member in GP)
+            const selectedPerson = personnel.find(p => p.id === formData.leaderId);
+            if (selectedPerson) {
+                const newMember = {
+                    ...selectedPerson,
+                    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
+                    gpId: createdGp.id,
+                    role: 'LIDER'
+                };
+                await backend.addMember(newMember);
+            }
+
+            showToast('Grupo Pequeño creado exitosamente', 'success');
+            navigate('/pastor/churches');
+        } catch (error: any) {
+            console.error("Error creating GP:", error);
+            showToast(`Error al crear grupo: ${error.message || 'Error desconocido'}`, 'error');
+        }
     };
 
     const periods = ['Anual', 'Semestral', 'Trimestral', 'Bimensual', 'Mensual', 'Quincenal', 'Semanal'];
@@ -142,15 +160,10 @@ const PastorCreateGroupView: React.FC = () => {
                             value={formData.leaderId} onChange={e => setFormData({ ...formData, leaderId: e.target.value })}>
                             <option value="">Seleccionar Líder...</option>
                             {personnel.filter(p => {
-                                // Filter by Role AND Church
-                                // 1. Check direct churchId if exists
                                 if (p.churchId === formData.churchId) return true;
-
-                                // 2. Check via GP if member is already in a group in this church
-                                const memberGp = mockBackend.getGPs().find(g => g.id === p.gpId);
+                                const memberGp = allGPs.find(g => g.id === p.gpId);
                                 if (memberGp && memberGp.churchId === formData.churchId) return true;
-
-                                return false; // Not in this church
+                                return false;
                             }).map(p => (
                                 <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
                             ))}

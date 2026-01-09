@@ -77,36 +77,43 @@ const DirectorCreateGroupView: React.FC = () => {
         }
 
         try {
-            // 1. Create the GP
-            const newGpData: Omit<SmallGroup, 'id'> = {
+            // 1. Generate a GP ID upfront
+            const gpId = `gp-${Math.random().toString(36).substr(2, 9)}`;
+
+            // 2. Create the User for the Leader FIRST (we need the UUID for leader_id)
+            const newUserData: Omit<User, 'id'> = {
+                username: formData.username,
+                password: formData.password,
+                role: 'LIDER_GP',
+                relatedEntityId: gpId,
+                name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder',
+                email: formData.username.includes('@') ? formData.username : `${formData.username}@gp.com`, // Ensure an email exists
+                isActive: true
+            };
+
+            const createdUser = await backend.createUser(newUserData);
+
+            // 3. Create the GP (using the User's UUID as leaderId)
+            const newGpData: SmallGroup = {
+                id: gpId,
                 name: formData.name,
                 motto: 'Lema por definir', // Default
                 verse: 'Versículo por definir', // Default
                 meetingDay: 'Viernes', // Default
                 meetingTime: '19:00', // Default
                 churchId: church.id,
-                leaderId: formData.leaderId, // This is the ID from the personnel list
+                leaderId: createdUser.id, // This is the UUID from Supabase
                 goals: formData.goals
             };
 
             const createdGp = await backend.createGP(newGpData);
 
-            // 2. Create the User for the Leader
-            const newUserData: Omit<User, 'id'> = {
-                username: formData.username,
-                password: formData.password,
-                role: 'LIDER_GP',
-                relatedEntityId: createdGp.id,
-                name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder'
-            };
-
-            await backend.createUser(newUserData);
-
-            // 3. Move personnel to Member (create member in GP)
+            // 4. Move personnel to Member (create member in GP)
             const selectedPerson = personnel.find(p => p.id === formData.leaderId);
             if (selectedPerson) {
                 const newMember = {
                     ...selectedPerson,
+                    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
                     gpId: createdGp.id,
                     role: 'LIDER'
                 };
@@ -115,9 +122,9 @@ const DirectorCreateGroupView: React.FC = () => {
 
             showToast('Grupo Pequeño creado exitosamente', 'success');
             navigate('/director/groups');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating GP:", error);
-            showToast('Error al crear grupo', 'error');
+            showToast(`Error al crear grupo: ${error.message || 'Error desconocido'}`, 'error');
         }
     };
 
