@@ -10,15 +10,17 @@ const PastorCreateGroupView: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { backend } = useBackend();
-    const [personnel, setPersonnel] = useState<any[]>([]);
     const [churches, setChurches] = useState<Church[]>([]);
-    const [allGPs, setAllGPs] = useState<SmallGroup[]>([]);
 
     const [formData, setFormData] = useState({
         churchId: '',
         name: '',
-        leaderId: '',
+        leaderFirstName: '',
+        leaderLastName: '',
+        leaderCedula: '',
+        leaderPhone: '',
         username: '',
+        email: '',
         password: '',
         goals: {
             baptisms: { target: 0, period: 'Anual' },
@@ -34,19 +36,11 @@ const PastorCreateGroupView: React.FC = () => {
         const loadData = async () => {
             if (!district) return;
 
-            // Load available personnel (roles)
-            const storedPersonnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
-            setPersonnel(storedPersonnel);
-
             try {
                 // Load churches for this district
                 const allChurches = await backend.getChurches();
                 const districtChurches = allChurches.filter(c => c.districtId === district.id);
                 setChurches(districtChurches);
-
-                // Load all GPs for leader filtering
-                const gps = await backend.getGPs();
-                setAllGPs(gps);
             } catch (error) {
                 console.error("Error loading data:", error);
             }
@@ -78,21 +72,34 @@ const PastorCreateGroupView: React.FC = () => {
         try {
             // 1. Generate a GP ID upfront
             const gpId = `gp-${Math.random().toString(36).substr(2, 9)}`;
+            const leaderName = `${formData.leaderFirstName} ${formData.leaderLastName}`;
 
-            // 2. Create the User for the Leader FIRST (we need the UUID for leader_id)
+            // 2. Create the User for the Leader
             const newUserData: Omit<User, 'id'> = {
                 username: formData.username,
                 password: formData.password,
                 role: 'LIDER_GP',
                 relatedEntityId: gpId,
-                name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder',
-                email: formData.username.includes('@') ? formData.username : `${formData.username}@gp.com`,
+                name: leaderName,
+                email: formData.email,
                 isActive: true
             };
 
             const createdUser = await backend.createUser(newUserData);
 
-            // 3. Create the GP
+            // 3. Create Auth User (Supabase Auth)
+            try {
+                const userMetadata = {
+                    name: leaderName,
+                    role: 'LIDER_GP',
+                    relatedEntityId: gpId
+                };
+                await backend.createAuthUser(formData.email, formData.password, userMetadata);
+            } catch (authError) {
+                console.error("Error creating auth user", authError);
+            }
+
+            // 4. Create the GP
             const newGp: SmallGroup = {
                 id: gpId,
                 name: formData.name,
@@ -107,17 +114,24 @@ const PastorCreateGroupView: React.FC = () => {
 
             const createdGp = await backend.createGP(newGp);
 
-            // 4. Move personnel to Member (create member in GP)
-            const selectedPerson = personnel.find(p => p.id === formData.leaderId);
-            if (selectedPerson) {
-                const newMember = {
-                    ...selectedPerson,
-                    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
-                    gpId: createdGp.id,
-                    role: 'LIDER'
-                };
-                await backend.addMember(newMember);
-            }
+            // 5. Create the Member record for the leader
+            const newMember = {
+                firstName: formData.leaderFirstName,
+                lastName: formData.leaderLastName,
+                cedula: formData.leaderCedula,
+                phone: formData.leaderPhone,
+                email: formData.email,
+                id: `mem-${Math.random().toString(36).substr(2, 9)}`,
+                gpId: createdGp.id,
+                role: 'LIDER',
+                churchId: formData.churchId,
+                isBaptized: true, // Assuming leader is baptized
+                gender: 'M',
+                address: '',
+                birthDate: ''
+            };
+            await backend.addMember(newMember);
+
 
             showToast('Grupo Pequeño creado exitosamente', 'success');
             navigate('/pastor/churches');
@@ -149,25 +163,40 @@ const PastorCreateGroupView: React.FC = () => {
 
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700">Nombre del Grupo</label>
                         <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                             value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                     </div>
+
+                    {/* Leader Details */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Líder del Grupo</label>
-                        <select required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.leaderId} onChange={e => setFormData({ ...formData, leaderId: e.target.value })}>
-                            <option value="">Seleccionar Líder...</option>
-                            {personnel.filter(p => {
-                                if (p.churchId === formData.churchId) return true;
-                                const memberGp = allGPs.find(g => g.id === p.gpId);
-                                if (memberGp && memberGp.churchId === formData.churchId) return true;
-                                return false;
-                            }).map(p => (
-                                <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-                            ))}
-                        </select>
+                        <label className="block text-sm font-medium text-gray-700">Nombre del Líder</label>
+                        <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderFirstName} onChange={e => setFormData({ ...formData, leaderFirstName: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Apellido del Líder</label>
+                        <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderLastName} onChange={e => setFormData({ ...formData, leaderLastName: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Cédula</label>
+                        <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderCedula} onChange={e => setFormData({ ...formData, leaderCedula: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                        <input type="tel" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderPhone} onChange={e => setFormData({ ...formData, leaderPhone: e.target.value })} />
+                    </div>
+
+                    {/* Credentials */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Email (Acceso)</label>
+                        <input type="email" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="lider@ejemplo.com" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Usuario (Login)</label>

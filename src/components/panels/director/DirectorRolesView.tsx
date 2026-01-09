@@ -1,203 +1,139 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { Church } from '../../../types';
-import { Save, Users } from 'lucide-react';
+import { useBackend } from '../../../context/BackendContext';
+import { Church, SmallGroup, Member } from '../../../types';
+import { Users, Filter } from 'lucide-react';
 
 const DirectorRolesView: React.FC = () => {
     const { church } = useOutletContext<{ church: Church }>();
     const { showToast } = useToast();
-    const [rolesList, setRolesList] = useState<any[]>([]);
+    const { backend } = useBackend();
 
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        cedula: '',
-        birthDate: '',
-        phone: '',
-        email: '',
-        address: '',
-        isBaptized: 'Sí',
-        gender: 'M',
-        role: 'LIDER'
-    });
+    const [gps, setGps] = useState<SmallGroup[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
+    const [filterGp, setFilterGp] = useState('');
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadRoles();
-    }, [church]);
+        const loadData = async () => {
+            if (!church) return;
+            try {
+                setLoading(true);
+                // 1. Get GPs for this church
+                const allGPs = await backend.getGPs();
+                const churchGps = allGPs.filter(g => g.churchId === church.id);
+                setGps(churchGps);
 
-    const loadRoles = () => {
-        const personnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
-        // Filter by this church only
-        const churchPersonnel = personnel.filter((p: any) => p.churchId === church.id);
-        setRolesList(churchPersonnel);
-    };
+                // 2. Get Members for these GPs
+                // In a perfect world we have getMembersByChurch(churchId)
+                // For now, we'll fetch members for each GP or filtered from all members if backend allows.
+                // Assuming we have to fetch per GP or get all (expensive) then filter.
+                // Let's iterate GPs for now as it's safer with current mock/limited backend interface knowledge.
+                let churchMembers: Member[] = [];
+                await Promise.all(churchGps.map(async (gp) => {
+                    const gpMembers = await backend.getMembersByGP(gp.id);
+                    churchMembers = [...churchMembers, ...gpMembers];
+                }));
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // In this context, "Roles" creates a Member that is not yet assigned to a GP, 
-        // or potentially a User. The prompt implies these are people available to be assigned.
-        // We'll create them as Members with a placeholder GP ID or null, but our type requires gpId.
-        // For now, we'll store them in a separate "pool" or just add them with a special flag.
-        // However, to keep it simple with the current backend, we might just add them to a "Unassigned" list
-        // or just save them to localStorage as 'available_personnel'.
-
-        // Let's assume we add them to the members list but with a null gpId (need to update type or handle it).
-        // Or better, just save to a new collection 'personnel' which CreateGroup reads from.
-
-        const newPerson = {
-            ...formData,
-            id: Math.random().toString(36).substr(2, 9),
-            isBaptized: formData.isBaptized === 'Sí',
-            churchId: church.id // Tag them with church
+                setMembers(churchMembers);
+            } catch (error) {
+                console.error("Error loading roles data:", error);
+                showToast('Error al cargar datos', 'error');
+            } finally {
+                setLoading(false);
+            }
         };
+        loadData();
+    }, [church, backend]);
 
-        const personnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
-        personnel.push(newPerson);
-        localStorage.setItem('app_personnel', JSON.stringify(personnel));
+    const filteredMembers = filterGp
+        ? members.filter(m => m.gpId === filterGp)
+        : members;
 
-        showToast('Persona registrada exitosamente', 'success');
-        setFormData({
-            firstName: '', lastName: '', cedula: '', birthDate: '', phone: '', email: '',
-            address: '', isBaptized: 'Sí', gender: 'M', role: 'LIDER'
-        });
-        loadRoles(); // Refresh the list
-    };
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    if (!church) return null;
 
     return (
-        <div className="max-w-2xl mx-auto bg-white shadow rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Registro de Roles (Personal)</h2>
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                <Users className="mr-3 text-primary" />
+                Visualización de Roles y Liderazgo
+            </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                        <input type="text" required name="firstName" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.firstName} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Apellido</label>
-                        <input type="text" required name="lastName" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.lastName} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Cédula</label>
-                        <input type="text" required name="cedula" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.cedula} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Fecha de Nacimiento</label>
-                        <input type="date" required name="birthDate" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.birthDate} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Teléfono</label>
-                        <input type="tel" required name="phone" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.phone} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" name="email" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.email} onChange={handleChange} />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Dirección</label>
-                        <input type="text" required name="address" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.address} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Bautizado</label>
-                        <select name="isBaptized" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.isBaptized} onChange={handleChange}>
-                            <option value="Sí">Sí</option>
-                            <option value="No">No</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Sexo</label>
-                        <select name="gender" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.gender} onChange={handleChange}>
-                            <option value="M">Masculino</option>
-                            <option value="F">Femenino</option>
-                        </select>
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Rol a Desempeñar</label>
-                        <select name="role" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.role} onChange={handleChange}>
-                            <option value="LIDER">Líder</option>
-                            <option value="LIDER_EN_FORMACION">Líder en formación</option>
-                            <option value="SECRETARIO">Secretario</option>
-                            <option value="MIEMBRO">Miembro</option>
-                        </select>
-                    </div>
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
+                <div className="flex-shrink-0 text-gray-500">
+                    <Filter size={20} />
                 </div>
-
-                <div className="flex justify-end pt-4">
-                    <button type="submit" className="btn btn-primary w-full md:w-auto">
-                        <Save className="mr-2" size={18} />
-                        Guardar Personal
-                    </button>
+                <div className="flex-grow max-w-md">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Grupo Pequeño</label>
+                    <select
+                        className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={filterGp}
+                        onChange={e => setFilterGp(e.target.value)}
+                    >
+                        <option value="">Todos los Grupos</option>
+                        {gps.map(g => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                    </select>
                 </div>
-            </form>
+            </div>
 
-            {/* Personnel List */}
-            <div className="mt-8 border-t pt-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                    <Users className="mr-2 text-primary" size={20} />
-                    Personal Registrado ({rolesList.length})
-                </h3>
-
-                {rolesList.length > 0 ? (
-                    <div className="bg-white shadow overflow-hidden rounded-lg">
+            {/* Members List */}
+            <div className="bg-white shadow overflow-hidden rounded-lg animate-fade-in">
+                {loading ? (
+                    <div className="text-center py-10">Cargando...</div>
+                ) : (
+                    <>
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cédula</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupo</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {rolesList.map((person: any) => (
-                                    <tr key={person.id} className="hover:bg-gray-50">
+                                {filteredMembers.map((member) => (
+                                    <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">
-                                                {person.firstName} {person.lastName}
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                                    <span className="font-bold text-indigo-600">{member.firstName[0]}</span>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="text-sm font-medium text-gray-900">{member.firstName} {member.lastName}</div>
+                                                    <div className="text-sm text-gray-500">{member.email || 'Sin email'}</div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {person.cedula}
+                                            {gps.find(g => g.id === member.gpId)?.name || 'Sin Asignar'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                {person.role === 'LIDER' ? 'Líder' :
-                                                    person.role === 'LIDER_EN_FORMACION' ? 'Líder en formación' :
-                                                        person.role === 'SECRETARIO' ? 'Secretario' : 'Miembro'}
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                ${member.role === 'LIDER' ? 'bg-green-100 text-green-800' :
+                                                    member.role === 'SECRETARIO' ? 'bg-blue-100 text-blue-800' :
+                                                        member.role === 'ANFITRION' ? 'bg-yellow-100 text-yellow-800' :
+                                                            'bg-gray-100 text-gray-800'}`}>
+                                                {member.role}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {person.phone}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {person.email || 'N/A'}
+                                            {member.phone || 'N/A'}
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-                ) : (
-                    <div className="text-center py-10 bg-gray-50 rounded-lg">
-                        <p className="text-gray-500">No hay personal registrado aún.</p>
-                        <p className="text-sm text-gray-400 mt-1">Usa el formulario de arriba para registrar nuevo personal.</p>
-                    </div>
+                        {filteredMembers.length === 0 && (
+                            <div className="text-center py-10 bg-gray-50">
+                                <p className="text-gray-500">No hay miembros para mostrar con los filtros actuales.</p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

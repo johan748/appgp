@@ -10,12 +10,15 @@ const DirectorCreateGroupView: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { backend } = useBackend();
-    const [personnel, setPersonnel] = useState<any[]>([]);
 
     const [formData, setFormData] = useState({
         name: '',
-        leaderId: '',
+        leaderFirstName: '',
+        leaderLastName: '',
+        leaderCedula: '',
+        leaderPhone: '',
         username: '',
+        email: '',
         password: '',
         goals: {
             baptisms: { target: 0, period: 'Anual' },
@@ -26,34 +29,6 @@ const DirectorCreateGroupView: React.FC = () => {
             bibleStudies: { target: 0, period: 'Semestral' }
         }
     });
-
-    // We still need to verify if the selected personnel is already in a GP.
-    // Ideally, personnel list should come from backend too, but keeping localStorage for now if it's transient.
-    // But we need to check GP membership using backend.
-
-    // For filtering effectively in the render, we need the list of all GPs.
-    const [allGPs, setAllGPs] = useState<SmallGroup[]>([]);
-
-    useEffect(() => {
-        const loadData = async () => {
-            if (!church) {
-                console.error('Church context is undefined');
-                return;
-            }
-
-            // Load available personnel (roles)
-            const storedPersonnel = JSON.parse(localStorage.getItem('app_personnel') || '[]');
-            setPersonnel(storedPersonnel);
-
-            try {
-                const gps = await backend.getGPs();
-                setAllGPs(gps);
-            } catch (error) {
-                console.error("Error loading GPs:", error);
-            }
-        };
-        loadData();
-    }, [church, backend]);
 
     const handleGoalChange = (goal: string, field: 'target' | 'period', value: any) => {
         setFormData(prev => ({
@@ -79,21 +54,34 @@ const DirectorCreateGroupView: React.FC = () => {
         try {
             // 1. Generate a GP ID upfront
             const gpId = `gp-${Math.random().toString(36).substr(2, 9)}`;
+            const leaderName = `${formData.leaderFirstName} ${formData.leaderLastName}`;
 
-            // 2. Create the User for the Leader FIRST (we need the UUID for leader_id)
+            // 2. Create the User for the Leader
             const newUserData: Omit<User, 'id'> = {
                 username: formData.username,
                 password: formData.password,
                 role: 'LIDER_GP',
                 relatedEntityId: gpId,
-                name: personnel.find(p => p.id === formData.leaderId)?.firstName || 'Líder',
-                email: formData.username.includes('@') ? formData.username : `${formData.username}@gp.com`, // Ensure an email exists
+                name: leaderName,
+                email: formData.email,
                 isActive: true
             };
 
             const createdUser = await backend.createUser(newUserData);
 
-            // 3. Create the GP (using the User's UUID as leaderId)
+            // 3. Create Auth User (Supabase Auth)
+            try {
+                const userMetadata = {
+                    name: leaderName,
+                    role: 'LIDER_GP',
+                    relatedEntityId: gpId
+                };
+                await backend.createAuthUser(formData.email, formData.password, userMetadata);
+            } catch (authError) {
+                console.error("Error creating auth user", authError);
+            }
+
+            // 4. Create the GP
             const newGpData: SmallGroup = {
                 id: gpId,
                 name: formData.name,
@@ -102,23 +90,30 @@ const DirectorCreateGroupView: React.FC = () => {
                 meetingDay: 'Viernes', // Default
                 meetingTime: '19:00', // Default
                 churchId: church.id,
-                leaderId: createdUser.id, // This is the UUID from Supabase
+                leaderId: createdUser.id, // Supabase UUID
                 goals: formData.goals
             };
 
             const createdGp = await backend.createGP(newGpData);
 
-            // 4. Move personnel to Member (create member in GP)
-            const selectedPerson = personnel.find(p => p.id === formData.leaderId);
-            if (selectedPerson) {
-                const newMember = {
-                    ...selectedPerson,
-                    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
-                    gpId: createdGp.id,
-                    role: 'LIDER'
-                };
-                await backend.addMember(newMember);
-            }
+            // 5. Create the Member record for the leader
+            const newMember = {
+                firstName: formData.leaderFirstName,
+                lastName: formData.leaderLastName,
+                cedula: formData.leaderCedula,
+                phone: formData.leaderPhone,
+                email: formData.email,
+                id: `mem-${Math.random().toString(36).substr(2, 9)}`,
+                gpId: createdGp.id,
+                role: 'LIDER',
+                churchId: church.id,
+                isBaptized: true, // Assuming leader is baptized
+                gender: 'M', // Defaulting for simplicity, or add field if needed
+                address: '',
+                birthDate: ''
+            };
+            await backend.addMember(newMember);
+
 
             showToast('Grupo Pequeño creado exitosamente', 'success');
             navigate('/director/groups');
@@ -135,7 +130,6 @@ const DirectorCreateGroupView: React.FC = () => {
             <div className="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
                 <div className="text-center py-10">
                     <p className="text-red-600 font-semibold">Error: No se pudo cargar la información de la iglesia.</p>
-                    <p className="text-gray-600 mt-2">Por favor vuelve al listado e intenta nuevamente.</p>
                 </div>
             </div>
         );
@@ -148,32 +142,40 @@ const DirectorCreateGroupView: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700">Nombre del Grupo</label>
                         <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                             value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                     </div>
+
+                    {/* Leader Details */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Líder del Grupo</label>
-                        <select required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            value={formData.leaderId} onChange={e => setFormData({ ...formData, leaderId: e.target.value })}>
-                            <option value="">Seleccionar Líder...</option>
-                            {personnel.filter(p => {
-                                // Filter by role AND church
-                                if (p.role !== 'LIDER') return false;
+                        <label className="block text-sm font-medium text-gray-700">Nombre del Líder</label>
+                        <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderFirstName} onChange={e => setFormData({ ...formData, leaderFirstName: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Apellido del Líder</label>
+                        <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderLastName} onChange={e => setFormData({ ...formData, leaderLastName: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Cédula</label>
+                        <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderCedula} onChange={e => setFormData({ ...formData, leaderCedula: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                        <input type="tel" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.leaderPhone} onChange={e => setFormData({ ...formData, leaderPhone: e.target.value })} />
+                    </div>
 
-                                // 1. Check direct churchId if exists
-                                if (p.churchId === church.id) return true;
-
-                                // 2. Check via GP if member is already in a group in this church
-                                const memberGp = allGPs.find(g => g.id === p.gpId);
-                                if (memberGp && memberGp.churchId === church.id) return true;
-
-                                return false; // Not in this church
-                            }).map(p => (
-                                <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-                            ))}
-                        </select>
+                    {/* User Credentials */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Email (Acceso)</label>
+                        <input type="email" required className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="lider@ejemplo.com" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Usuario (Login)</label>
