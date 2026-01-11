@@ -121,7 +121,6 @@ const PastorRolesView: React.FC = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupo</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol Actual</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -148,17 +147,6 @@ const PastorRolesView: React.FC = () => {
                                                     'bg-gray-100 text-gray-800'}`}>
                                             {member.role}
                                         </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <select
-                                            className="border border-gray-300 rounded text-sm p-1"
-                                            value={member.role}
-                                            onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                                        >
-                                            {roles.map(r => (
-                                                <option key={r} value={r}>{r}</option>
-                                            ))}
-                                        </select>
                                     </td>
                                 </tr>
                             ))}
