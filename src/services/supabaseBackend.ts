@@ -9,7 +9,7 @@ class SupabaseBackendService {
             const isEmail = username.includes('@')
 
             let authResult
-            if (isEmail) {
+            if (isgEmail) {
                 authResult = await supabase.auth.signInWithPassword({
                     email: username,
                     password: password,
