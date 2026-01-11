@@ -450,7 +450,7 @@ class SupabaseBackendService {
                     first_name: member.firstName,
                     last_name: member.lastName,
                     cedula: member.cedula,
-                    birth_date: member.birthDate,
+                    birth_date: member.birthDate || null,
                     phone: member.phone,
                     email: member.email,
                     address: member.address,

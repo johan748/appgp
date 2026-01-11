@@ -40,7 +40,7 @@ const AssociationGlobalReportsView: React.FC = () => {
             if (association) {
                 try {
                     const loadedZones = await backend.getZones();
-                    const assocZones = loadedZones.filter(z => z.associationId === association.id);
+                    const assocZones = loadedZones.filter(z => z && z.associationId === association.id);
                     setZones(assocZones);
 
                     // Fetch all hierarchy data once
@@ -52,16 +52,16 @@ const AssociationGlobalReportsView: React.FC = () => {
                         backend.getMembers()
                     ]);
 
-                    setAllDistricts(districtsData);
-                    setAllChurches(churchesData);
-                    setAllGPs(gpsData);
-                    setAllReports(reportsData);
-                    setAllMembers(membersData);
+                    setAllDistricts(districtsData || []);
+                    setAllChurches(churchesData || []);
+                    setAllGPs(gpsData || []);
+                    setAllReports(reportsData || []);
+                    setAllMembers(membersData || []);
 
                     // Filter down for stats calculation
-                    const assocDistricts = districtsData.filter(d => assocZones.some(z => z.id === d.zoneId));
-                    const assocChurches = churchesData.filter(c => assocDistricts.some(d => d.id === c.districtId));
-                    const assocGPs = gpsData.filter(g => assocChurches.some(c => c.id === g.churchId));
+                    const assocDistricts = (districtsData || []).filter(d => d && assocZones.some(z => z.id === d.zoneId));
+                    const assocChurches = (churchesData || []).filter(c => c && assocDistricts.some(d => d.id === c.districtId));
+                    const assocGPs = (gpsData || []).filter(g => g && assocChurches.some(c => c.id === g.churchId));
                     const assocGpIds = assocGPs.map(g => g.id);
 
                     // Build date range
