@@ -286,7 +286,6 @@ const AssociationDistrictsView: React.FC = () => {
                                         </div>
                                         <div className="ml-4">
                                             <div className="text-sm font-medium text-gray-900">{district.name}</div>
-                                            <div className="text-xs text-gray-500">ID: {district.id}</div>
                                         </div>
                                     </div>
                                 </td>

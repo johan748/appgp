@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom';
 import { useBackend } from '../../../context/BackendContext';
 import { Association, Zone, District, Church, SmallGroup, Report, Member } from '../../../types';
 import { BarChart, Users, BookOpen, Activity, ChevronDown, ChevronRight } from 'lucide-react';
