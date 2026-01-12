@@ -97,7 +97,7 @@ const AssociationGlobalReportsView: React.FC = () => {
                             attendance: zReports.reduce((sum, r) => sum + (r.summary?.totalAttendance || 0), 0),
                             studies: zReports.reduce((sum, r) => sum + (r.summary?.totalStudies || 0), 0),
                             guests: zReports.reduce((sum, r) => sum + (r.summary?.totalGuests || 0), 0),
-                            baptisms: zReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0) || 0)
+                            baptisms: zReports.reduce((sum, r) => sum + (r.summary?.baptisms || 0), 0)
                         };
                     });
                     setZoneStats(statsByZone);
@@ -288,7 +288,12 @@ const AssociationGlobalReportsView: React.FC = () => {
                                                                 <div className="w-4"></div>
                                                                 <div>
                                                                     <p className="font-medium text-gray-900">GP: {gp.name}</p>
-                                                                    <p className="text-xs text-gray-600">Líder: {allMembers.find(m => m.id === gp.leaderId)?.firstName} {allMembers.find(m => m.id === gp.leaderId)?.lastName}</p>
+                                                                    <p className="text-xs text-gray-600">
+                                                                        Líder: {gp.leaderId ?
+                                                                            (allMembers?.find(m => m.id === gp.leaderId)?.firstName || 'Cargando...') + ' ' +
+                                                                            (allMembers?.find(m => m.id === gp.leaderId)?.lastName || '')
+                                                                            : 'Sin asignar'}
+                                                                    </p>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">

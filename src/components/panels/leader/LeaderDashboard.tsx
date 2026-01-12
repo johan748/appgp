@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { mockBackend } from '../../../services/mockBackend';
+import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Member } from '../../../types';
 import { Settings, Calendar, Target, Users, Heart, ClipboardList, UserPlus, UserCheck, Award } from 'lucide-react';
 
 const LeaderDashboard: React.FC = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const { backend } = useBackend();
     const [gp, setGp] = useState<SmallGroup | null>(null);
     const [leader, setLeader] = useState<Member | null>(null);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -19,34 +20,45 @@ const LeaderDashboard: React.FC = () => {
     });
 
     useEffect(() => {
-        if (user && user.relatedEntityId) {
-            const gpData = mockBackend.getGPById(user.relatedEntityId);
-            if (gpData) {
-                setGp(gpData);
-                setConfigForm({
-                    name: gpData.name,
-                    motto: gpData.motto,
-                    verse: gpData.verse,
-                    meetingDay: gpData.meetingDay,
-                    meetingTime: gpData.meetingTime
-                });
+        const loadGPData = async () => {
+            if (user && user.relatedEntityId) {
+                try {
+                    const gpData = await backend.getGPById(user.relatedEntityId);
+                    if (gpData) {
+                        setGp(gpData);
+                        setConfigForm({
+                            name: gpData.name,
+                            motto: gpData.motto || '',
+                            verse: gpData.verse || '',
+                            meetingDay: gpData.meetingDay || '',
+                            meetingTime: gpData.meetingTime || ''
+                        });
 
-                // Find leader member profile for gender/name
-                const gpMembers = mockBackend.getMembersByGP(gpData.id);
-                setMembers(gpMembers);
-                const leaderMember = gpMembers.find(m => m.id === gpData.leaderId);
-                setLeader(leaderMember || null);
+                        // Find leader member profile
+                        const gpMembers = await backend.getMembersByGP(gpData.id);
+                        setMembers(gpMembers);
+                        const leaderMember = gpMembers.find(m => m.id === gpData.leaderId);
+                        setLeader(leaderMember || null);
+                    }
+                } catch (error) {
+                    console.error("Error loading GP dashboard data:", error);
+                }
             }
-        }
-    }, [user]);
+        };
+        loadGPData();
+    }, [user, backend]);
 
-    const handleSaveConfig = (e: React.FormEvent) => {
+    const handleSaveConfig = async (e: React.FormEvent) => {
         e.preventDefault();
         if (gp) {
             const updatedGp = { ...gp, ...configForm };
-            mockBackend.updateGP(updatedGp);
-            setGp(updatedGp);
-            setIsConfigOpen(false);
+            try {
+                await backend.updateGP(updatedGp);
+                setGp(updatedGp);
+                setIsConfigOpen(false);
+            } catch (error) {
+                console.error("Error updating GP info:", error);
+            }
         }
     };
 

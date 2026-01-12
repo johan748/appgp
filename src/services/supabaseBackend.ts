@@ -491,6 +491,53 @@ class SupabaseBackendService {
         }
     }
 
+    async updateMember(member: Member): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from('members')
+                .update({
+                    first_name: member.firstName,
+                    last_name: member.lastName,
+                    cedula: member.cedula,
+                    birth_date: member.birthDate || null,
+                    phone: member.phone,
+                    email: member.email,
+                    address: member.address,
+                    is_baptized: member.isBaptized,
+                    gender: member.gender,
+                    role: member.role,
+                    leadership_progress: member.leadershipProgress,
+                    friend_progress: member.friendProgress
+                })
+                .eq('id', member.id)
+
+            if (error) {
+                console.error('Error updating member:', error)
+                throw error
+            }
+        } catch (error) {
+            console.error('Error updating member:', error)
+            throw error
+        }
+    }
+
+    async deleteMember(id: string): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from('members')
+                .delete()
+                .eq('id', id)
+
+            if (error) {
+                console.error('Error deleting member:', error)
+                throw error
+            }
+        } catch (error) {
+            console.error('Error deleting member:', error)
+            throw error
+        }
+    }
+
     // Union methods
     // Union methods
     async getUnions(): Promise<Union[]> {
