@@ -28,6 +28,7 @@ const LeaderHome: React.FC = () => {
         const currentMonth = new Date().getMonth();
         const birthdaysThisMonth = members
             .filter(m => {
+                if (!m.birthDate || !m.birthDate.includes('-')) return false;
                 // Parse date without timezone issues
                 const [year, month, day] = m.birthDate.split('-').map(Number);
                 const birthMonth = month - 1; // JS months are 0-indexed
