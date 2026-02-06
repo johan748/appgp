@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { BackendProvider } from './context/BackendContext';
@@ -195,6 +196,7 @@ const App: React.FC = () => {
                             {/* Default Redirect */}
                             <Route path="/" element={<LandingPage />} />
                         </Routes>
+                        <SpeedInsights />
                     </Router>
                 </AuthProvider>
             </BackendProvider>
