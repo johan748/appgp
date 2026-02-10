@@ -1,0 +1,579 @@
+import { User, SmallGroup, Member, Church, District, Zone, Association, WeeklyReport, MissionaryPair, Role, Union, Student, BibleStudyLesson } from '../types';
+
+const STORAGE_KEYS = {
+    USERS: 'app_users',
+    GPS: 'app_gps',
+    MEMBERS: 'app_members',
+    CHURCHES: 'app_churches',
+    DISTRICTS: 'app_districts',
+    ZONES: 'app_zones',
+    ASSOCIATION: 'app_association',
+    UNIONS: 'app_unions',
+    REPORTS: 'app_reports',
+    PAIRS: 'app_pairs',
+    STUDENTS: 'app_students',
+    LESSONS: 'app_lessons',
+};
+
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+class MockBackendService {
+    // Helper to get data
+    private get<T>(key: string): T[] {
+        const data = localStorage.getItem(key);
+        try {
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error(`Error parsing data for key ${key}`, e);
+            return [];
+        }
+    }
+
+    // Helper to save data
+    public save(key: string, data: any[]) {
+        localStorage.setItem(key, JSON.stringify(data));
+    }
+
+    // Helper to get single item
+    private getOne<T>(key: string, id: string): T | undefined {
+        const items = this.get<any>(key);
+        return items.find((i: any) => i.id === id);
+    }
+
+
+    // Initialization / Seeding
+    initialize() {
+        if (!localStorage.getItem(STORAGE_KEYS.UNIONS) || !localStorage.getItem(STORAGE_KEYS.REPORTS)) {
+            console.log('Seeding initial data...');
+            this.seedData();
+        } else {
+            // Update admin password if needed
+            const users = this.get<User>(STORAGE_KEYS.USERS);
+            const adminUser = users.find(u => u.username === 'admin');
+            if (adminUser && adminUser.password !== '1234asdf') {
+                adminUser.password = '1234asdf';
+                this.save(STORAGE_KEYS.USERS, users);
+                console.log('Admin password updated to 1234asdf');
+            }
+        }
+    }
+
+    seedData() {
+        // 0. Union (NEW ROOT)
+        const union: Union = {
+            id: 'union-1',
+            name: 'Unión Example',
+            evangelismDepartmentHead: 'Pr. Departamental de Evangelismo',
+            config: { username: 'admin_union', password: 'password' }
+        };
+        this.save(STORAGE_KEYS.UNIONS, [union]);
+
+        // 1. Association
+        const association: Association = {
+            id: 'assoc-1',
+            name: 'Asociación Ejemplo',
+            departmentHead: 'Pr. Director MP',
+            unionId: union.id,
+            membershipCount: 5000,
+            config: { username: 'admin_assoc', password: 'password' }
+        };
+        localStorage.setItem(STORAGE_KEYS.ASSOCIATION, JSON.stringify([association]));
+
+        // 2. Zone
+        const zone: Zone = {
+            id: 'zone-1',
+            name: 'Zona Norte',
+            directorId: 'dir-zone-1',
+            associationId: association.id,
+            goals: {}
+        };
+        this.save(STORAGE_KEYS.ZONES, [zone]);
+
+        // 3. District
+        const district: District = {
+            id: 'dist-1',
+            name: 'Distrito Central',
+            pastorId: 'pastor-1',
+            zoneId: zone.id,
+            goals: {}
+        };
+        this.save(STORAGE_KEYS.DISTRICTS, [district]);
+
+        // 4. Church
+        const church: Church = {
+            id: 'church-1',
+            name: 'Iglesia Central',
+            districtId: district.id,
+            directorId: 'dir-mp-1',
+            address: 'Av. Principal 123'
+        };
+        this.save(STORAGE_KEYS.CHURCHES, [church]);
+
+        // 5. Small Group (GP)
+        const gp: SmallGroup = {
+            id: 'gp-1',
+            name: 'GP Esperanza',
+            motto: 'Maranatha',
+            verse: 'Juan 3:16',
+            meetingDay: 'Viernes',
+            meetingTime: '19:00',
+            churchId: church.id,
+            leaderId: 'leader-1',
+            goals: {
+                baptisms: { target: 5, period: 'Anual' },
+                weeklyAttendanceMembers: { target: 80, period: 'Semanal' },
+                weeklyAttendanceGp: { target: 90, period: 'Semanal' },
+                missionaryPairs: { target: 3, period: 'Anual' },
+                friends: { target: 10, period: 'Trimestral' },
+                bibleStudies: { target: 15, period: 'Semestral' }
+            }
+        };
+        this.save(STORAGE_KEYS.GPS, [gp]);
+
+        // 6. Users & Members
+        const users: User[] = [
+            { id: 'u-admin', username: 'admin', password: '1234asdf', role: 'ADMIN', name: 'Administrador' },
+            { id: 'u-assoc', username: 'asociacion', password: 'password', role: 'ASOCIACION', relatedEntityId: association.id, name: 'Pr. Departamental' },
+            { id: 'u-zone', username: 'zona', password: 'password', role: 'DIRECTOR_ZONA', relatedEntityId: zone.id, name: 'Dir. Zona' },
+            { id: 'u-pastor', username: 'pastor', password: 'password', role: 'PASTOR', relatedEntityId: district.id, name: 'Pr. Juan Pérez' },
+            { id: 'u-dir-mp', username: 'director', password: 'password', role: 'DIRECTOR_MP', relatedEntityId: church.id, name: 'Dir. MP Iglesia' },
+            { id: 'u-leader', username: 'lider', password: 'password', role: 'LIDER_GP', relatedEntityId: gp.id, name: 'Líder GP' },
+        ];
+        this.save(STORAGE_KEYS.USERS, users);
+
+        const members: Member[] = [
+            {
+                id: 'leader-1', firstName: 'Carlos', lastName: 'Líder', cedula: '123456', birthDate: '1990-01-01',
+                phone: '555-5555', email: 'leader@test.com', address: 'Calle 1', isBaptized: true, gender: 'M', role: 'LIDER', gpId: gp.id
+            },
+            {
+                id: 'sec-1', firstName: 'Ana', lastName: 'Secretaria', cedula: '654321', birthDate: '1995-05-05',
+                phone: '555-1234', email: 'sec@test.com', address: 'Calle 2', isBaptized: true, gender: 'F', role: 'SECRETARIO', gpId: gp.id
+            },
+            {
+                id: 'mem-1', firstName: 'Pedro', lastName: 'Miembro', cedula: '111222', birthDate: '1988-08-08',
+                phone: '555-9876', email: 'mem@test.com', address: 'Calle 3', isBaptized: true, gender: 'M', role: 'MIEMBRO', gpId: gp.id
+            }
+        ];
+        this.save(STORAGE_KEYS.MEMBERS, members);
+
+        // 7. Reports
+        const reports: WeeklyReport[] = [
+            {
+                id: 'report-1',
+                gpId: gp.id,
+                date: '2024-12-01',
+                attendance: [
+                    { memberId: 'leader-1', present: true, participated: true, studiesGiven: true, guests: 0 },
+                    { memberId: 'sec-1', present: true, participated: false, studiesGiven: false, guests: 1 },
+                    { memberId: 'mem-1', present: false, participated: false, studiesGiven: false, guests: 0 }
+                ],
+                missionaryPairsStats: [
+                    { pairId: 'pair-1', studiesGiven: 5 }
+                ],
+                baptisms: 2,
+                summary: {
+                    totalAttendance: 2,
+                    totalStudies: 5,
+                    totalGuests: 1,
+                    baptisms: 2
+                }
+            },
+            {
+                id: 'report-2',
+                gpId: gp.id,
+                date: '2024-11-24',
+                attendance: [
+                    { memberId: 'leader-1', present: true, participated: true, studiesGiven: true, guests: 0 },
+                    { memberId: 'sec-1', present: true, participated: true, studiesGiven: false, guests: 0 },
+                    { memberId: 'mem-1', present: true, participated: false, studiesGiven: false, guests: 2 }
+                ],
+                missionaryPairsStats: [
+                    { pairId: 'pair-1', studiesGiven: 3 }
+                ],
+                baptisms: 1,
+                summary: {
+                    totalAttendance: 3,
+                    totalStudies: 3,
+                    totalGuests: 2,
+                    baptisms: 1
+                }
+            }
+        ];
+        this.save(STORAGE_KEYS.REPORTS, reports);
+
+        // 8. Missionary Pairs
+        const pairs: MissionaryPair[] = [
+            {
+                id: 'pair-1',
+                gpId: gp.id,
+                member1Id: 'leader-1',
+                member2Id: 'sec-1',
+                studiesGiven: 8, // Sum from reports
+                createdAt: '2024-01-01T00:00:00.000Z'
+            }
+        ];
+        this.save(STORAGE_KEYS.PAIRS, pairs);
+    }
+
+    // --- PUBLIC API ---
+
+    // Auth
+    authenticate(username: string, password: string): User | null {
+        const users = this.get<User>(STORAGE_KEYS.USERS);
+
+        // 1. Check UNION config
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        const matchingUnion = unions.find(u => u.config?.username === username && u.config?.password === password);
+
+        if (matchingUnion) {
+            const existing = users.find(u => u.role === 'UNION' && u.relatedEntityId === matchingUnion.id);
+            if (existing) return existing;
+
+            return {
+                id: 'temp-union-' + matchingUnion.id,
+                username: matchingUnion.config?.username || 'union',
+                password: '',
+                role: 'UNION',
+                relatedEntityId: matchingUnion.id,
+                name: matchingUnion.evangelismDepartmentHead || matchingUnion.name
+            };
+        }
+
+        // 2. Check ASSOCIATION config
+        const assocs = this.get<Association>(STORAGE_KEYS.ASSOCIATION);
+        const matchingAssoc = assocs.find(a => a.config?.username === username && a.config?.password === password);
+
+        if (matchingAssoc) {
+            // Find existing user linked to this association
+            const existing = users.find(u => u.role === 'ASOCIACION' && u.relatedEntityId === matchingAssoc.id);
+            if (existing) return existing;
+
+            // If user doesn't exist in users table but config matches, create ephemeral/temp user (or should we create it?)
+            // Ideally we return a valid user object even if not in table, 
+            // but for consistency let's assume seedData created it or we just mock it here.
+            return {
+                id: 'temp-assoc-' + matchingAssoc.id,
+                username: matchingAssoc.config.username,
+                password: matchingAssoc.config.password,
+                role: 'ASOCIACION',
+                relatedEntityId: matchingAssoc.id,
+                name: matchingAssoc.departmentHead || matchingAssoc.name
+            };
+        }
+
+        return users.find(u => u.username === username && u.password === password) || null;
+    }
+
+    // Generic Getters
+    getUsers() { return this.get<User>(STORAGE_KEYS.USERS); }
+    getGPs() { return this.get<SmallGroup>(STORAGE_KEYS.GPS); }
+    getChurches() { return this.get<Church>(STORAGE_KEYS.CHURCHES); }
+    getDistricts() { return this.get<District>(STORAGE_KEYS.DISTRICTS); }
+    getZones() { return this.get<Zone>(STORAGE_KEYS.ZONES); }
+    getMissionaryPairs() { return this.get<MissionaryPair>(STORAGE_KEYS.PAIRS); }
+
+    updateGP(gp: SmallGroup) {
+        const gps = this.get<SmallGroup>(STORAGE_KEYS.GPS);
+        const index = gps.findIndex(g => g.id === gp.id);
+        if (index !== -1) {
+            gps[index] = gp;
+            this.save(STORAGE_KEYS.GPS, gps);
+        }
+    }
+
+    getMembersByGP(gpId: string) {
+        return this.getMembers().filter(m => m.gpId === gpId);
+    }
+
+    getGPById(id: string) {
+        return this.getGPs().find(g => g.id === id);
+    }
+
+    // Union Management
+    getUnions() { return this.get<Union>(STORAGE_KEYS.UNIONS); }
+    getUnionById(id: string) { return this.getOne<Union>(STORAGE_KEYS.UNIONS, id); }
+
+    addUnion(union: Union) {
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        unions.push(union);
+        this.save(STORAGE_KEYS.UNIONS, unions);
+        return union;
+    }
+
+    updateUnion(union: Union) {
+        const unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        const index = unions.findIndex(u => u.id === union.id);
+        if (index !== -1) {
+            unions[index] = union;
+            this.save(STORAGE_KEYS.UNIONS, unions);
+        }
+    }
+
+    deleteUnion(id: string) {
+        let unions = this.get<Union>(STORAGE_KEYS.UNIONS);
+        unions = unions.filter(u => u.id !== id);
+        this.save(STORAGE_KEYS.UNIONS, unions);
+    }
+
+    // Association Getters
+    getAssociations() { return this.get<Association>(STORAGE_KEYS.ASSOCIATION); }
+    getAssociation() { return this.get<Association>(STORAGE_KEYS.ASSOCIATION)[0]; } // Deprecated but kept for compat if needed, prefer getAssociationById
+    getAssociationById(id: string) { return this.getOne<Association>(STORAGE_KEYS.ASSOCIATION, id); }
+
+    updateAssociation(assoc: Association) {
+        const assocs = this.get<Association>(STORAGE_KEYS.ASSOCIATION);
+        const index = assocs.findIndex(a => a.id === assoc.id);
+
+        if (index !== -1) {
+            assocs[index] = assoc;
+            this.save(STORAGE_KEYS.ASSOCIATION, assocs);
+        } else {
+            // If strictly updating, we might error, but let's be safe
+            // If it doesn't exist, we don't save. 
+        }
+
+        // Also update the linked user 'asociacion' credentials if config changed
+        if (assoc.config) {
+            const users = this.get<User>(STORAGE_KEYS.USERS);
+            // Find the user linked to THIS association
+            const assocUserIndex = users.findIndex(u => u.role === 'ASOCIACION' && u.relatedEntityId === assoc.id);
+            if (assocUserIndex !== -1) {
+                users[assocUserIndex].username = assoc.config.username;
+                users[assocUserIndex].password = assoc.config.password;
+                this.save(STORAGE_KEYS.USERS, users);
+            }
+        }
+    }
+
+    // Zone Management
+    addZone(zone: Zone) {
+        const zones = this.get<Zone>(STORAGE_KEYS.ZONES);
+        zones.push(zone);
+        this.save(STORAGE_KEYS.ZONES, zones);
+        return zone;
+    }
+
+    updateZone(zone: Zone) {
+        const zones = this.get<Zone>(STORAGE_KEYS.ZONES);
+        const index = zones.findIndex(z => z.id === zone.id);
+        if (index !== -1) {
+            zones[index] = zone;
+            this.save(STORAGE_KEYS.ZONES, zones);
+        }
+    }
+
+    deleteZone(id: string) {
+        let zones = this.get<Zone>(STORAGE_KEYS.ZONES);
+        zones = zones.filter(z => z.id !== id);
+        this.save(STORAGE_KEYS.ZONES, zones);
+    }
+
+    // District Management
+    addDistrict(district: District) {
+        const districts = this.get<District>(STORAGE_KEYS.DISTRICTS);
+        districts.push(district);
+        this.save(STORAGE_KEYS.DISTRICTS, districts);
+        return district;
+    }
+
+    updateDistrict(district: District) {
+        const districts = this.get<District>(STORAGE_KEYS.DISTRICTS);
+        const index = districts.findIndex(d => d.id === district.id);
+        if (index !== -1) {
+            districts[index] = district;
+            this.save(STORAGE_KEYS.DISTRICTS, districts);
+        }
+    }
+
+    deleteDistrict(id: string) {
+        let districts = this.get<District>(STORAGE_KEYS.DISTRICTS);
+        districts = districts.filter(d => d.id !== id);
+        this.save(STORAGE_KEYS.DISTRICTS, districts);
+    }
+
+    // User Management
+    createUser(userData: Omit<User, 'id'>): User {
+        const users = this.get<User>(STORAGE_KEYS.USERS);
+
+        // Check for duplicate username
+        const existing = users.find(u => u.username === userData.username);
+        if (existing) {
+            throw new Error(`El nombre de usuario "${userData.username}" ya está en uso.`);
+        }
+
+        const newUser: User = {
+            id: 'user-' + Math.random().toString(36).substr(2, 9),
+            ...userData
+        };
+
+        users.push(newUser);
+        this.save(STORAGE_KEYS.USERS, users);
+        return newUser;
+    }
+
+    updateUser(user: User) {
+        const users = this.get<User>(STORAGE_KEYS.USERS);
+        const index = users.findIndex(u => u.id === user.id);
+        if (index !== -1) {
+            users[index] = user;
+            this.save(STORAGE_KEYS.USERS, users);
+        }
+    }
+
+    deleteUser(id: string) {
+        const users = this.get<User>(STORAGE_KEYS.USERS);
+        const filteredUsers = users.filter(u => u.id !== id);
+        this.save(STORAGE_KEYS.USERS, filteredUsers);
+    }
+
+    getMembers() {
+        const members = this.get<Member>(STORAGE_KEYS.MEMBERS);
+        // Self-healing: Fix members without IDs
+        let changed = false;
+        const fixedMembers = members.map(m => {
+            if (!m.id) {
+                m.id = 'mem-' + Math.random().toString(36).substr(2, 9);
+                changed = true;
+            }
+            return m;
+        });
+
+        if (changed) {
+            this.save(STORAGE_KEYS.MEMBERS, fixedMembers);
+        }
+        return fixedMembers;
+    }
+
+    addMember(member: any) {
+        const members = this.get<any>(STORAGE_KEYS.MEMBERS);
+        // Prevent simple duplicates by cedula
+        if (member.cedula && members.some(m => m.cedula === member.cedula)) {
+            // Already exists, maybe update? Or just ignore to prevent duplicates
+            console.warn('Member with this cedula already exists');
+            return;
+        }
+        members.push(member);
+        this.save(STORAGE_KEYS.MEMBERS, members);
+    }
+
+    updateMember(member: Member) {
+        const members = this.get<Member>(STORAGE_KEYS.MEMBERS);
+        const index = members.findIndex(m => m.id === member.id);
+        if (index !== -1) {
+            members[index] = member;
+            this.save(STORAGE_KEYS.MEMBERS, members);
+        }
+    }
+
+    getReports() {
+        return this.get<any>(STORAGE_KEYS.REPORTS);
+    }
+
+    updateReport(report: any) {
+        const reports = this.get<any>(STORAGE_KEYS.REPORTS);
+        const index = reports.findIndex(r => r.id === report.id);
+        if (index !== -1) {
+            reports[index] = report;
+            this.save(STORAGE_KEYS.REPORTS, reports);
+        }
+    }
+
+    deleteReport(id: string) {
+        let reports = this.get<any>(STORAGE_KEYS.REPORTS);
+        reports = reports.filter(r => r.id !== id);
+        this.save(STORAGE_KEYS.REPORTS, reports);
+    }
+
+    cleanupDuplicates() {
+        // Clean Zones
+        const zones = this.get<Zone>(STORAGE_KEYS.ZONES);
+        const uniqueZones: Zone[] = [];
+        const seenZoneIds = new Set<string>();
+        let zonesChanged = false;
+
+        zones.forEach(z => {
+            if (z && z.id && !seenZoneIds.has(z.id)) {
+                uniqueZones.push(z);
+                seenZoneIds.add(z.id);
+            } else {
+                zonesChanged = true;
+            }
+        });
+
+        if (zonesChanged) {
+            console.log('Cleaning up invalid/duplicate zones');
+            this.save(STORAGE_KEYS.ZONES, uniqueZones);
+        }
+
+        // Clean Districts
+        const districts = this.get<District>(STORAGE_KEYS.DISTRICTS);
+        const uniqueDistricts: District[] = [];
+        const seenDistrictIds = new Set<string>();
+        let districtsChanged = false;
+
+        districts.forEach(d => {
+            if (d && d.id && !seenDistrictIds.has(d.id)) {
+                uniqueDistricts.push(d);
+                seenDistrictIds.add(d.id);
+            } else {
+                districtsChanged = true;
+            }
+        });
+
+        if (districtsChanged) {
+            console.log('Cleaning up invalid/duplicate districts');
+            this.save(STORAGE_KEYS.DISTRICTS, uniqueDistricts);
+        }
+    }
+
+
+    // Bible Studies Management
+    getStudents() { return this.get<Student>(STORAGE_KEYS.STUDENTS); }
+
+    getStudentsByGP(gpId: string) {
+        // We need to filter by pairs that belong to this GP
+        const pairs = this.get<MissionaryPair>(STORAGE_KEYS.PAIRS).filter(p => p.gpId === gpId);
+        const pairIds = pairs.map(p => p.id);
+        return this.get<Student>(STORAGE_KEYS.STUDENTS).filter(s => pairIds.includes(s.missionaryPairId));
+    }
+
+    addStudent(student: Student) {
+        const students = this.get<Student>(STORAGE_KEYS.STUDENTS);
+        students.push(student);
+        this.save(STORAGE_KEYS.STUDENTS, students);
+        return student;
+    }
+
+    updateStudent(student: Student) {
+        const students = this.get<Student>(STORAGE_KEYS.STUDENTS);
+        const index = students.findIndex(s => s.id === student.id);
+        if (index !== -1) {
+            students[index] = student;
+            this.save(STORAGE_KEYS.STUDENTS, students);
+        }
+    }
+
+    deleteStudent(id: string) {
+        const students = this.get<Student>(STORAGE_KEYS.STUDENTS);
+        const filtered = students.filter(s => s.id !== id);
+        this.save(STORAGE_KEYS.STUDENTS, filtered);
+    }
+
+    getLessons() { return this.get<BibleStudyLesson>(STORAGE_KEYS.LESSONS); }
+
+    saveLesson(lesson: BibleStudyLesson) {
+        const lessons = this.get<BibleStudyLesson>(STORAGE_KEYS.LESSONS);
+        // Check if exists
+        const index = lessons.findIndex(l => l.studentId === lesson.studentId && l.lessonNumber === lesson.lessonNumber);
+        if (index !== -1) {
+            lessons[index] = lesson;
+        } else {
+            lessons.push(lesson);
+        }
+        this.save(STORAGE_KEYS.LESSONS, lessons);
+        return lesson;
+    }
+}
+
+export const mockBackend = new MockBackendService();
