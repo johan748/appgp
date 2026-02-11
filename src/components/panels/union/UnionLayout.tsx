@@ -11,21 +11,62 @@ const UnionLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [union, setUnion] = React.useState<Union | null>(null);
+    const [isLoadingUnion, setIsLoadingUnion] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
 
     // Fetch Union data based on user
     React.useEffect(() => {
         const loadUnion = async () => {
             if (user?.role === 'UNION' && user.relatedEntityId) {
                 try {
+                    console.log('Fetching union for ID:', user.relatedEntityId);
                     const u = await backend.getUnionById(user.relatedEntityId);
-                    setUnion(u || null);
-                } catch (e) { console.error(e); }
+                    if (u) {
+                        setUnion(u);
+                    } else {
+                        setError(`No se encontró la Unión con ID: ${user.relatedEntityId}`);
+                    }
+                } catch (e) {
+                    console.error(e);
+                    setError('Error al cargar los datos de la Unión');
+                } finally {
+                    setIsLoadingUnion(false);
+                }
+            } else {
+                setIsLoadingUnion(false);
+                if (user?.role !== 'UNION') setError('El usuario no tiene rol de Unión');
+                else if (!user.relatedEntityId) setError('El usuario no tiene una Unión vinculada');
             }
         };
         loadUnion();
     }, [user, backend]);
 
-    if (!union) return <div>Cargando...</div>;
+    if (isLoadingUnion) return (
+        <div className="h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#3e8391] mx-auto"></div>
+                <p className="mt-4 text-gray-600 font-medium">Cargando datos de la Unión...</p>
+            </div>
+        </div>
+    );
+
+    if (error || !union) return (
+        <div className="h-screen flex items-center justify-center bg-gray-50 p-4">
+            <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border-l-4 border-red-500">
+                <div className="text-red-500 mb-4 flex justify-center">
+                    <LogOut size={48} />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Error de Configuración</h2>
+                <p className="text-gray-600 mb-6">{error || 'No se pudo cargar la información de la Unión.'}</p>
+                <button
+                    onClick={() => { logout(); navigate('/login'); }}
+                    className="w-full bg-[#3e8391] text-white py-2 rounded-lg font-bold hover:bg-[#336d7a] transition-colors"
+                >
+                    Volver al Inicio
+                </button>
+            </div>
+        </div>
+    );
 
     const navItems = [
         { path: '/union', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },

@@ -79,7 +79,7 @@ export interface Church {
 export interface District {
     id: string;
     name: string;
-    pastorId: string; // Links to a User
+    pastorId?: string; // Links to a User
     zoneId: string;
     goals: any; // Similar structure to GP goals but aggregated or specific to district
 }
@@ -87,7 +87,7 @@ export interface District {
 export interface Zone {
     id: string;
     name: string;
-    directorId: string;
+    directorId?: string;
     associationId: string;
     goals: any;
 }

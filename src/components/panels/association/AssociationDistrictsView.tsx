@@ -147,13 +147,20 @@ const AssociationDistrictsView: React.FC = () => {
                         };
                         await backend.updateUser(updatedUser);
                     } else {
-                        // Create if missing
+                        // Create if missing (Auth then DB)
                         try {
+                            const userMetadata = {
+                                name: formData.pastorName,
+                                role: 'PASTOR' as any,
+                                relatedEntityId: updatedDistrict.id
+                            };
+                            const authResult = await backend.createAuthUser(formData.email, formData.password || 'password', userMetadata);
                             await backend.createUser({
+                                id: authResult.user?.id,
                                 email: formData.email,
                                 username: formData.username,
                                 password: formData.password || 'password',
-                                role: 'PASTOR' as any,
+                                role: userMetadata.role,
                                 relatedEntityId: updatedDistrict.id,
                                 name: formData.pastorName,
                                 isActive: true
@@ -182,14 +189,14 @@ const AssociationDistrictsView: React.FC = () => {
                     id: districtId,
                     name: formData.name,
                     zoneId: formData.zoneId,
-                    pastorId: null,
+                    pastorId: undefined,
                     goals: formData.goals
                 };
 
                 // 2. Save District
                 await backend.addDistrict(newDistrict);
 
-                // 3. Create Pastor User with Rollback (simulated via try/catch)
+                // 3. Create Pastor User with Rollback (Auth then DB)
                 if (formData.username && formData.password && formData.email) {
                     try {
                         const userMetadata = {
@@ -198,8 +205,21 @@ const AssociationDistrictsView: React.FC = () => {
                             relatedEntityId: districtId
                         };
 
-                        // A. Create record in public.users
+                        // A. Create account in Supabase Auth FIRST to get UUID
+                        let authId: string | undefined;
+                        try {
+                            const authResult = await backend.createAuthUser(formData.email, formData.password, userMetadata);
+                            authId = authResult.user?.id;
+                        } catch (authErr: any) {
+                            console.error('Error creating auth account:', authErr);
+                            // Rollback district if auth fails
+                            await backend.deleteDistrict(districtId);
+                            throw new Error(`Error al crear cuenta de acceso: ${authErr.message}`);
+                        }
+
+                        // B. Create record in public.users using Auth UUID
                         await backend.createUser({
+                            id: authId, // Link to Auth UUID
                             username: formData.username,
                             password: formData.password,
                             email: formData.email,
@@ -208,15 +228,13 @@ const AssociationDistrictsView: React.FC = () => {
                             name: userMetadata.name
                         });
 
-                        // B. Create account in Supabase Auth
-                        try {
-                            await backend.createAuthUser(formData.email, formData.password, userMetadata);
-                        } catch (authError: any) {
-                            console.error('Error creating auth account:', authError);
-                        }
-
                     } catch (userError: any) {
-                        await backend.deleteDistrict(districtId);
+                        // Rollback District if not already rolled back
+                        try {
+                            const exists = await (backend.getDistrictById ? backend.getDistrictById(districtId) : backend.getDistricts().then(ds => ds.find(d => d.id === districtId)));
+                            if (exists) await backend.deleteDistrict(districtId);
+                        } catch (e) { }
+
                         throw new Error('Error al crear el usuario del pastor: ' + userError.message + '. Operación cancelada.');
                     }
                 } else if (!formData.email && formData.username) {

@@ -33,6 +33,7 @@ export interface IBackendService {
 
     // Districts
     getDistricts(): Promise<District[]>;
+    getDistrictById?(id: string): Promise<District | undefined>;
     addDistrict(district: District): Promise<District>;
     updateDistrict(district: District): Promise<void>;
     deleteDistrict(id: string): Promise<void>;

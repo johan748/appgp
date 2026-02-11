@@ -102,13 +102,20 @@ const AssociationZonesView: React.FC = () => {
                         };
                         await backend.updateUser(updatedUser);
                     } else {
-                        // Create if missing
+                        // Create if missing (Auth then DB)
                         try {
+                            const userMetadata = {
+                                name: formData.directorName,
+                                role: 'DIRECTOR_ZONA' as any,
+                                relatedEntityId: updatedZone.id
+                            };
+                            const authResult = await backend.createAuthUser(formData.email, formData.password || 'password', userMetadata);
                             await backend.createUser({
+                                id: authResult.user?.id,
                                 username: formData.username,
                                 password: formData.password || 'password',
                                 email: formData.email,
-                                role: 'DIRECTOR_ZONA' as any,
+                                role: userMetadata.role,
                                 relatedEntityId: updatedZone.id,
                                 name: formData.directorName,
                                 isActive: true
@@ -139,7 +146,7 @@ const AssociationZonesView: React.FC = () => {
 
                 const zoneId = 'zone-' + Math.random().toString(36).substr(2, 9);
 
-                // 2. Create Director User FIRST
+                // 2. Create Director User FIRST (Auth then DB)
                 let directorUserId = 'pending';
                 if (formData.username && formData.password && formData.email) {
                     try {
@@ -149,8 +156,19 @@ const AssociationZonesView: React.FC = () => {
                             relatedEntityId: zoneId
                         };
 
-                        // A. Create record in public.users
+                        // A. Create account in Supabase Auth FIRST to get UUID
+                        let authId: string | undefined;
+                        try {
+                            const authResult = await backend.createAuthUser(formData.email, formData.password, userMetadata);
+                            authId = authResult.user?.id;
+                        } catch (authErr: any) {
+                            console.error('Error creating auth account:', authErr);
+                            throw new Error(`Error al crear cuenta de acceso: ${authErr.message}`);
+                        }
+
+                        // B. Create record in public.users using the UUID from Auth
                         const newUser = await backend.createUser({
+                            id: authId, // Link to Auth UUID
                             username: formData.username,
                             password: formData.password,
                             email: formData.email,
@@ -159,15 +177,6 @@ const AssociationZonesView: React.FC = () => {
                             name: userMetadata.name
                         });
                         directorUserId = newUser.id;
-
-                        // B. Create account in Supabase Auth
-                        try {
-                            await backend.createAuthUser(formData.email, formData.password, userMetadata);
-                        } catch (authError: any) {
-                            console.error('Error creating auth account:', authError);
-                            // We don't rollback if auth fails, but warn. 
-                            // Or should we rollback? For Zones, maybe better to keep consistency.
-                        }
 
                     } catch (userError: any) {
                         throw new Error('Error al crear el usuario del director: ' + userError.message);

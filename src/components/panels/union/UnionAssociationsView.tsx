@@ -15,6 +15,7 @@ const UnionAssociationsView: React.FC = () => {
     const [currentAssoc, setCurrentAssoc] = useState<Partial<Association>>({});
     const [userEmail, setUserEmail] = useState('');   // State for user email
     const [userName, setUserName] = useState('');     // State for user full name
+    const [isSaving, setIsSaving] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -75,6 +76,7 @@ const UnionAssociationsView: React.FC = () => {
             return;
         }
 
+        setIsSaving(true);
         const assocToSave = { ...currentAssoc, unionId: union.id } as Association;
 
         try {
@@ -120,26 +122,45 @@ const UnionAssociationsView: React.FC = () => {
                     relatedEntityId: newId
                 };
 
-                // A. Create record in public.users
-                await backend.createUser({
-                    username: currentAssoc.config!.username!,
-                    email: userEmail,
-                    name: userMetadata.name,
-                    role: userMetadata.role,
-                    relatedEntityId: newId,
-                    isActive: true,
-                    password: currentAssoc.config!.password!
-                });
+                // A. Create account in Supabase Auth FIRST to get UUID
+                let authId: string | undefined;
+                try {
+                    const authResult = await backend.createAuthUser(userEmail, currentAssoc.config!.password!, userMetadata);
+                    authId = authResult.user?.id;
+                } catch (authErr: any) {
+                    console.error('Error creating auth account:', authErr);
+                    showToast(`Error al crear cuenta de acceso: ${authErr.message}`, 'error');
+                    // Stop here if we can't create auth
+                    setIsSaving(false);
+                    return;
+                }
 
-                // B. Create account in Supabase Auth
-                await backend.createAuthUser(userEmail, currentAssoc.config!.password!, userMetadata);
+                // B. Create record in public.users using the UUID from Auth
+                try {
+                    await backend.createUser({
+                        id: authId, // Link to Auth UUID
+                        username: currentAssoc.config!.username!,
+                        email: userEmail,
+                        name: userMetadata.name,
+                        role: userMetadata.role,
+                        relatedEntityId: newId,
+                        isActive: true,
+                        password: currentAssoc.config!.password!
+                    });
+                } catch (userErr: any) {
+                    console.error('Error creating user record:', userErr);
+                    showToast(`Asociación y Auth creadas, pero hubo un error en el registro de usuario: ${userErr.message}`, 'warning');
+                }
 
                 showToast('Asociación y cuenta de acceso creadas con éxito', 'success');
             }
             setIsEditing(false);
             loadAssociations();
         } catch (error: any) {
-            showToast('Error al guardar: ' + error.message, 'error');
+            console.error('HandleSave Error:', error);
+            showToast('Error al guardar: ' + (error.message || 'Error desconocido'), 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -238,8 +259,30 @@ const UnionAssociationsView: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex justify-end mt-4 space-x-2">
-                        <button onClick={() => setIsEditing(false)} className="px-4 py-2 border rounded">Cancelar</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded">Guardar</button>
+                        <button
+                            disabled={isSaving}
+                            onClick={() => setIsEditing(false)}
+                            className="px-4 py-2 border rounded disabled:opacity-50"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            disabled={isSaving}
+                            onClick={handleSave}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded flex items-center space-x-2 disabled:opacity-70"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                                    <span>Guardando...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={18} />
+                                    <span>Guardar Asociación</span>
+                                </>
+                            )}
+                        </button>
                     </div>
                 </div>
             )}

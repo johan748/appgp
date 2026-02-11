@@ -127,18 +127,23 @@ class SupabaseBackendService implements IBackendService {
 
     async createUser(userData: Omit<User, 'id'> & { id?: string }): Promise<User> {
         try {
+            const insertData: any = {
+                username: userData.username,
+                name: userData.name,
+                role: userData.role,
+                related_entity_id: userData.relatedEntityId,
+                email: userData.email,
+                password: userData.password,
+                is_active: userData.isActive ?? true
+            }
+
+            if (userData.id) {
+                insertData.id = userData.id
+            }
+
             const { data, error } = await supabase
                 .from('users')
-                .insert([{
-                    id: userData.id, // Support provided ID (from Auth)
-                    username: userData.username,
-                    name: userData.name,
-                    role: userData.role,
-                    related_entity_id: userData.relatedEntityId,
-                    email: userData.email,
-                    password: userData.password,
-                    is_active: userData.isActive ?? true
-                }])
+                .insert([insertData])
                 .select()
                 .maybeSingle()
 
@@ -790,6 +795,28 @@ class SupabaseBackendService implements IBackendService {
             zoneId: d.zone_id,
             goals: d.goals
         }))
+    }
+
+    async getDistrictById(id: string): Promise<District | undefined> {
+        try {
+            const { data, error } = await supabase
+                .from('districts')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle()
+
+            if (error || !data) return undefined
+            return {
+                id: data.id,
+                name: data.name,
+                pastorId: data.pastor_id,
+                zoneId: data.zone_id,
+                goals: data.goals
+            }
+        } catch (error) {
+            console.error('Error fetching district by ID:', error)
+            return undefined
+        }
     }
 
     async addDistrict(district: District): Promise<District> {

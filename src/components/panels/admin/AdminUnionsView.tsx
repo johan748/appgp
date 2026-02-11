@@ -84,6 +84,11 @@ const AdminUnionsView: React.FC = () => {
             return;
         }
 
+        if (!currentUnion.config?.username || !userEmail || !currentUnion.config?.password) {
+            showToast('El usuario, email y contraseña son obligatorios para el acceso', 'warning');
+            return;
+        }
+
         try {
             let unionId = currentUnion.id;
 
@@ -102,8 +107,33 @@ const AdminUnionsView: React.FC = () => {
                                 username: currentUnion.config.username,
                                 email: userEmail,
                                 name: userName || currentUnion.name!,
-                                password: currentUnion.config.password // Store password in DB as requested
+                                password: currentUnion.config.password
                             });
+                        } else if (userEmail) {
+                            // User doesn't exist for this union, create it now
+                            const userMetadata = {
+                                name: userName || currentUnion.name!,
+                                role: 'UNION' as any,
+                                relatedEntityId: unionId
+                            };
+
+                            await backend.createUser({
+                                username: currentUnion.config.username,
+                                email: userEmail,
+                                name: userMetadata.name,
+                                role: userMetadata.role,
+                                relatedEntityId: unionId,
+                                isActive: true,
+                                password: currentUnion.config.password
+                            });
+
+                            try {
+                                await backend.createAuthUser(userEmail, currentUnion.config.password, userMetadata);
+                                showToast('Cuenta de acceso creada exitosamente', 'success');
+                            } catch (authErrorDetail: any) {
+                                console.error('Error creating auth account:', authErrorDetail);
+                                showToast(`Error al crear cuenta de acceso: ${authErrorDetail.message}`, 'error');
+                            }
                         }
                     } catch (userErr) {
                         console.error('Error updating linked user:', userErr);
@@ -129,8 +159,21 @@ const AdminUnionsView: React.FC = () => {
                             relatedEntityId: unionId
                         };
 
-                        // A. Create record in public.users
+                        // A. Create account in Supabase Auth FIRST
+                        let authId: string | undefined;
+                        try {
+                            const authResult = await backend.createAuthUser(userEmail, currentUnion.config.password, userMetadata);
+                            authId = authResult.user?.id;
+                        } catch (authError: any) {
+                            console.error('Error creating auth account:', authError);
+                            showToast(`Error al crear cuenta de acceso: ${authError.message}`, 'error');
+                            // If Auth fails on new union, we might have an orphan union record, but the user can re-try
+                            return;
+                        }
+
+                        // B. Create record in public.users using Auth UUID
                         await backend.createUser({
+                            id: authId,
                             username: currentUnion.config.username,
                             email: userEmail,
                             name: userMetadata.name,
@@ -140,18 +183,11 @@ const AdminUnionsView: React.FC = () => {
                             password: currentUnion.config.password
                         });
 
-                        // B. Create account in Supabase Auth (Automated via Vercel Function)
-                        try {
-                            await backend.createAuthUser(userEmail, currentUnion.config.password, userMetadata);
-                            showToast('Usuario de sistema y cuenta de acceso creados exitosamente', 'success');
-                        } catch (authError: any) {
-                            console.error('Error creating auth account:', authError);
-                            showToast(`Usuario creado en BD, pero error en Auth: ${authError.message}`, 'warning');
-                        }
+                        showToast('Unión y cuenta de acceso creadas exitosamente', 'success');
 
-                    } catch (userError) {
+                    } catch (userError: any) {
                         console.error('Error creating user:', userError);
-                        showToast('Unión creada, pero error al crear usuario', 'warning');
+                        showToast('Unión creada, pero error al registrar usuario: ' + userError.message, 'warning');
                     }
                 }
                 showToast('Unión guardada correctamente', 'success');
@@ -213,9 +249,10 @@ const AdminUnionsView: React.FC = () => {
                             <hr className="mb-4" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Login)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Login) <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
+                                required
                                 className="w-full border border-gray-300 rounded p-2"
                                 value={currentUnion.config?.username || ''}
                                 placeholder="ej. union.norte"
@@ -226,9 +263,10 @@ const AdminUnionsView: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login Supabase)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login Supabase) <span className="text-red-500">*</span></label>
                             <input
                                 type="email"
+                                required
                                 className="w-full border border-gray-300 rounded p-2"
                                 value={userEmail}
                                 placeholder="ej. admin@union.org"
@@ -236,18 +274,20 @@ const AdminUnionsView: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Usuario</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Usuario <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
+                                required
                                 className="w-full border border-gray-300 rounded p-2"
                                 value={userName}
                                 onChange={e => setUserName(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
+                                required
                                 className="w-full border border-gray-300 rounded p-2"
                                 value={currentUnion.config?.password || ''}
                                 placeholder="Contraseña segura"

@@ -56,7 +56,19 @@ const PastorCreateChurchView: React.FC = () => {
                 relatedEntityId: newChurch.id
             };
 
-            const userToCreate: Omit<User, 'id'> = {
+            // A. Create account in Supabase Auth FIRST to get UUID
+            let authId: string | undefined;
+            try {
+                const authResult = await backend.createAuthUser(formData.email, formData.password, userMetadata);
+                authId = authResult.user?.id;
+            } catch (authErr: any) {
+                console.error('Error creating auth account:', authErr);
+                throw new Error(`Error al crear cuenta de acceso: ${authErr.message}`);
+            }
+
+            // B. Create record in public.users using Auth UUID
+            const userToCreate: Omit<User, 'id'> & { id?: string } = {
+                id: authId,
                 username: formData.username,
                 password: formData.password,
                 email: formData.email,
@@ -66,13 +78,6 @@ const PastorCreateChurchView: React.FC = () => {
             };
 
             await backend.createUser(userToCreate);
-
-            // 4. Create account in Supabase Auth
-            try {
-                await backend.createAuthUser(formData.email, formData.password, userMetadata);
-            } catch (authError: any) {
-                console.error('Error creating auth account:', authError);
-            }
 
             showToast('Iglesia creada exitosamente', 'success');
             navigate('/pastor/churches');
