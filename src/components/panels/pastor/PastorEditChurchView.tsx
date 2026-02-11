@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
 import { useBackend } from '../../../context/BackendContext';
-import { District, Church } from '../../../types';
-import { Save } from 'lucide-react';
+import { District, Church, User } from '../../../types';
+import { Save, ArrowLeft } from 'lucide-react';
 
 const PastorEditChurchView: React.FC = () => {
     const { district } = useOutletContext<{ district: District }>();
+    const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { backend } = useBackend();
     const [churches, setChurches] = useState<Church[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState('');
     const [formData, setFormData] = useState<Church | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const [directorData, setDirectorData] = useState({
         name: '',
         email: '',
@@ -25,16 +27,23 @@ const PastorEditChurchView: React.FC = () => {
             if (district) {
                 try {
                     const allChurches = await backend.getChurches();
-                    setChurches(allChurches.filter(c => c.districtId === district.id));
+                    const districtChurches = allChurches.filter(c => c.districtId === district.id);
+                    setChurches(districtChurches);
+
+                    // If ID is provided in params, select it
+                    if (id) {
+                        handleSelect(id, districtChurches);
+                    }
                 } catch (e) { console.error(e); }
             }
         };
         loadChurches();
-    }, [district, backend]);
+    }, [district, backend, id]);
 
-    const handleSelect = async (id: string) => {
-        setSelectedChurchId(id);
-        const church = churches.find(c => c.id === id);
+    const handleSelect = async (churchId: string, availableChurches?: Church[]) => {
+        setSelectedChurchId(churchId);
+        const source = availableChurches || churches;
+        const church = source.find(c => c.id === churchId);
         if (church) {
             setFormData({ ...church });
             // Fetch linked director user
@@ -59,6 +68,7 @@ const PastorEditChurchView: React.FC = () => {
         e.preventDefault();
         if (formData) {
             try {
+                setIsSaving(true);
                 // 1. Update Church
                 await backend.updateChurch(formData);
 
@@ -76,16 +86,27 @@ const PastorEditChurchView: React.FC = () => {
                         };
                         await backend.updateUser(updatedUser);
                     } else {
-                        // Create if missing
-                        await backend.createUser({
-                            username: directorData.username,
-                            password: directorData.password || 'password',
-                            email: directorData.email,
-                            role: 'DIRECTOR_MP' as any,
-                            relatedEntityId: formData.id,
-                            name: directorData.name,
-                            isActive: true
-                        });
+                        // Create if missing (Auth then DB)
+                        try {
+                            const userMetadata = {
+                                name: directorData.name,
+                                role: 'DIRECTOR_MP' as any,
+                                relatedEntityId: formData.id
+                            };
+                            const authResult = await backend.createAuthUser(directorData.email, directorData.password || 'password', userMetadata);
+                            await backend.createUser({
+                                id: authResult.user?.id,
+                                username: directorData.username,
+                                password: directorData.password || 'password',
+                                email: directorData.email,
+                                role: userMetadata.role,
+                                relatedEntityId: formData.id,
+                                name: directorData.name,
+                                isActive: true
+                            });
+                        } catch (e) {
+                            console.error("Error creating missing user for church", e);
+                        }
                     }
                 }
 
@@ -94,27 +115,40 @@ const PastorEditChurchView: React.FC = () => {
             } catch (error) {
                 console.error("Error updating church/director:", error);
                 showToast('Error al actualizar datos', 'error');
+            } finally {
+                setIsSaving(false);
             }
         }
     };
 
     return (
         <div className="max-w-2xl mx-auto bg-white shadow rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Editar Iglesia</h2>
-
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700">Seleccionar Iglesia</label>
-                <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    value={selectedChurchId}
-                    onChange={e => handleSelect(e.target.value)}
+            <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Editar Iglesia</h2>
+                <button
+                    onClick={() => navigate('/pastor/churches')}
+                    className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
                 >
-                    <option value="">Seleccione una Iglesia...</option>
-                    {churches.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                </select>
+                    <ArrowLeft size={20} className="mr-1" />
+                    Volver
+                </button>
             </div>
+
+            {!id && (
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700">Seleccionar Iglesia</label>
+                    <select
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={selectedChurchId}
+                        onChange={e => handleSelect(e.target.value)}
+                    >
+                        <option value="">Seleccione una Iglesia...</option>
+                        {churches.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {formData && (
                 <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
@@ -149,7 +183,7 @@ const PastorEditChurchView: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Nueva Contraseña</label>
-                                <input type="password" underline className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                                <input type="password" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                     placeholder="Dejar en blanco para no cambiar"
                                     value={directorData.password} onChange={e => setDirectorData({ ...directorData, password: e.target.value })} />
                             </div>
@@ -157,9 +191,17 @@ const PastorEditChurchView: React.FC = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                        <button type="submit" className="btn btn-primary">
-                            <Save className="mr-2" size={18} />
-                            Guardar Cambios
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className={`btn btn-primary flex items-center ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                            {isSaving ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            ) : (
+                                <Save className="mr-2" size={18} />
+                            )}
+                            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                         </button>
                     </div>
                 </form>

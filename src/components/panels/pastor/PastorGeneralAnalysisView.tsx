@@ -106,8 +106,8 @@ const PastorGeneralAnalysisView: React.FC = () => {
                     <h2 className="text-3xl font-black text-gray-900 tracking-tight">Análisis General</h2>
                     <p className="text-gray-500 font-medium">Distrito: {district.name}</p>
                 </div>
-                <div className="bg-blue-50 p-3 rounded-xl">
-                    <TrendingUp className="text-blue-600" size={28} />
+                <div className="bg-[#3e8391]/10 p-3 rounded-xl text-[#3e8391]">
+                    <TrendingUp size={28} />
                 </div>
             </header>
 
@@ -124,11 +124,11 @@ const PastorGeneralAnalysisView: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 text-center">
+                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
                             <p className="text-sm font-bold text-purple-600 uppercase tracking-wider mb-1">Total Amigos</p>
                             <p className="text-4xl font-black text-purple-900">{stats.totalFriends}</p>
                         </div>
-                        <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 text-center">
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 text-center">
                             <p className="text-sm font-bold text-orange-600 uppercase tracking-wider mb-1">Visitas Semanales</p>
                             <p className="text-4xl font-black text-orange-900">{stats.latestAttendance.guests}</p>
                         </div>
@@ -140,9 +140,9 @@ const PastorGeneralAnalysisView: React.FC = () => {
                     </h4>
 
                     <div className="space-y-4">
-                        <FunnelStep label="Invitados" count={stats.funnel.invited} total={stats.totalFriends} color="bg-blue-500" />
-                        <FunnelStep label="Asistentes Regulares" count={stats.funnel.regular} total={stats.totalFriends} color="bg-indigo-500" />
-                        <FunnelStep label="Estudiantes Bíblicos" count={stats.funnel.student} total={stats.totalFriends} color="bg-purple-500" />
+                        <FunnelStep label="Invitados" count={stats.funnel.invited} total={stats.totalFriends} color="bg-blue-400" />
+                        <FunnelStep label="Asistentes Regulares" count={stats.funnel.regular} total={stats.totalFriends} color="bg-[#3e8391]" />
+                        <FunnelStep label="Estudiantes Bíblicos" count={stats.funnel.student} total={stats.totalFriends} color="bg-orange-500" />
                         <FunnelStep label="Bautizados (IASD)" count={stats.funnel.baptized} total={stats.totalFriends} color="bg-green-500" />
                     </div>
                 </section>
@@ -151,7 +151,7 @@ const PastorGeneralAnalysisView: React.FC = () => {
                 <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <div className="p-2 bg-[#3e8391]/10 text-[#3e8391] rounded-lg">
                                 <UserPlus size={24} />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800">Miembros en GP</h3>
@@ -159,13 +159,13 @@ const PastorGeneralAnalysisView: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 text-center">
-                            <p className="text-sm font-bold text-blue-600 uppercase tracking-wider mb-1">Asistencia</p>
-                            <p className="text-4xl font-black text-blue-900">{stats.latestAttendance.memberPercent}%</p>
+                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 text-center">
+                            <p className="text-sm font-bold text-green-600 uppercase tracking-wider mb-1">Asistencia</p>
+                            <p className="text-4xl font-black text-green-900">{stats.latestAttendance.memberPercent}%</p>
                         </div>
-                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-center">
-                            <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-1">Líderes Formados</p>
-                            <p className="text-4xl font-black text-indigo-900">{stats.leadership.lider}</p>
+                        <div className="bg-[#3e8391]/10 p-4 rounded-xl border border-[#3e8391]/20 text-center">
+                            <p className="text-sm font-bold text-[#3e8391] uppercase tracking-wider mb-1">Líderes Formados</p>
+                            <p className="text-4xl font-black text-[#3e8391]">{stats.leadership.lider}</p>
                         </div>
                     </div>
 
@@ -175,14 +175,14 @@ const PastorGeneralAnalysisView: React.FC = () => {
                     </h4>
 
                     <div className="space-y-4">
-                        <FunnelStep label="Líderes en Formación" count={stats.leadership.formacion} total={stats.totalMembers} color="bg-blue-400" icon={<Activity size={14} />} />
-                        <FunnelStep label="Secretarios" count={stats.leadership.secretario} total={stats.totalMembers} color="bg-blue-500" />
-                        <FunnelStep label="Líderes de GP" count={stats.leadership.lider} total={stats.totalMembers} color="bg-blue-600" />
+                        <FunnelStep label="Líderes en Formación" count={stats.leadership.formacion} total={stats.totalMembers} color="bg-blue-300" icon={<Activity size={14} />} />
+                        <FunnelStep label="Secretarios" count={stats.leadership.secretario} total={stats.totalMembers} color="bg-blue-400" />
+                        <FunnelStep label="Líderes de GP" count={stats.leadership.lider} total={stats.totalMembers} color="bg-[#3e8391]" />
                     </div>
                 </section>
 
                 {/* 3. Retención y 4. Desarrollo Integral */}
-                <section className="bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-2xl shadow-xl text-white lg:col-span-2">
+                <section className="bg-gradient-to-br from-[#3e8391] to-[#2c636e] p-8 rounded-2xl shadow-xl text-white lg:col-span-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         <div>
                             <h3 className="text-2xl font-bold mb-6 flex items-center">
@@ -221,7 +221,7 @@ const PastorGeneralAnalysisView: React.FC = () => {
                                 <p className="text-sm text-white/60 leading-relaxed bg-white/5 p-4 rounded-lg">
                                     El desarrollo integral se mide por la participación activa en parejas misioneras, estudios bíblicos y asistencia constante.
                                 </p>
-                                <button className="w-full py-3 bg-white text-blue-700 font-bold rounded-xl flex items-center justify-center hover:bg-blue-50 transition-colors">
+                                <button className="w-full py-3 bg-white text-[#3e8391] font-bold rounded-xl flex items-center justify-center hover:bg-white/90 transition-colors">
                                     Ver Detalle por GP
                                     <ChevronRight size={18} className="ml-2" />
                                 </button>
