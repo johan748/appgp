@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useBackend } from '../../../context/BackendContext';
 import { SmallGroup, Student, MissionaryPair, Member, BibleStudyLesson, User as AppUser } from '../../../types';
-import { User, Phone, MapPin, Calendar, Mail, BookOpen, FileText, FileSpreadsheet, Search } from 'lucide-react';
+import { User, Phone, MapPin, Calendar, Mail, BookOpen, FileText, FileSpreadsheet, Search, Edit, Trash2, X, Save, AlertCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { useToast } from '../../../context/ToastContext';
 
 const StudentsListTab: React.FC = () => {
     const context = useOutletContext<any>();
@@ -14,16 +15,22 @@ const StudentsListTab: React.FC = () => {
     const district = context?.district;
 
     const { backend } = useBackend();
+    const { showToast } = useToast();
     const [students, setStudents] = useState<Student[]>([]);
     const [pairs, setPairs] = useState<MissionaryPair[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [gps, setGps] = useState<SmallGroup[]>([]);
     const [churches, setChurches] = useState<any[]>([]);
     const [lessons, setLessons] = useState<BibleStudyLesson[]>([]);
+    const [courses, setCourses] = useState<any[]>([]);
     const [pastorName, setPastorName] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Edit/Delete State
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -31,19 +38,21 @@ const StudentsListTab: React.FC = () => {
                 setError('');
                 setLoading(true);
 
-                const [allStudents, allPairs, allMembers, allGps, allChurches, allLessons, allUsers] = await Promise.all([
+                const [allStudents, allPairs, allMembers, allGps, allChurches, allLessons, allUsers, allCourses] = await Promise.all([
                     backend.getStudents(),
                     backend.getMissionaryPairs(),
                     backend.getMembers(),
                     backend.getGPs(),
                     backend.getChurches(),
                     backend.getLessons(),
-                    backend.getUsers()
+                    backend.getUsers(),
+                    backend.getCourses()
                 ]);
 
                 setGps(allGps);
                 setChurches(allChurches);
                 setLessons(allLessons);
+                setCourses(allCourses);
 
                 // Find Pastor Name if district context
                 if (district) {
@@ -111,6 +120,35 @@ const StudentsListTab: React.FC = () => {
         const total = student.totalLessons || 30; // Default to 30 if not set
         const percentage = Math.round((completedCount / total) * 100);
         return { completedCount, total, percentage };
+    };
+
+    const handleDelete = async (studentId: string, studentName: string) => {
+        const confirm = window.confirm(`¿Estás seguro de que deseas eliminar al estudiante "${studentName}"? Esta acción no se puede deshacer.`);
+        if (!confirm) return;
+
+        try {
+            setIsDeleting(studentId);
+            await backend.deleteStudent(studentId);
+            setStudents(prev => prev.filter(s => s.id !== studentId));
+            showToast('Estudiante eliminado correctamente', 'success');
+        } catch (error) {
+            console.error(error);
+            showToast('Error al eliminar estudiante', 'error');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
+
+    const handleUpdateStudent = async (updatedStudent: Student) => {
+        try {
+            await backend.updateStudent(updatedStudent);
+            setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
+            setEditingStudent(null);
+            showToast('Estudiante actualizado correctamente', 'success');
+        } catch (error) {
+            console.error(error);
+            showToast('Error al actualizar estudiante', 'error');
+        }
     };
 
     // Export Functions
@@ -274,6 +312,7 @@ const StudentsListTab: React.FC = () => {
 
     return (
         <div className="space-y-8">
+            {/* Search and Export Bar */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -306,6 +345,7 @@ const StudentsListTab: React.FC = () => {
                 </div>
             </div>
 
+            {/* List */}
             {relevantPairs.length === 0 ? (
                 <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                     <p className="text-gray-500">No se encontraron estudiantes.</p>
@@ -336,8 +376,31 @@ const StudentsListTab: React.FC = () => {
                                     {studentsByPair[pair.id].map(student => {
                                         const progress = getStudentProgress(student);
                                         return (
-                                            <div key={student.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all w-[350px] min-w-[350px] flex-shrink-0">
-                                                <div className="flex items-start justify-between mb-3">
+                                            <div key={student.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all w-[350px] min-w-[350px] flex-shrink-0 relative group">
+                                                {/* Edit/Delete Actions */}
+                                                <div className="absolute top-4 right-4 flex space-x-1 opacity-100 animate-fade-in">
+                                                    <button
+                                                        onClick={() => setEditingStudent(student)}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(student.id, `${student.firstName} ${student.lastName}`)}
+                                                        disabled={isDeleting === student.id}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                                                        title="Eliminar"
+                                                    >
+                                                        {isDeleting === student.id ? (
+                                                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        ) : (
+                                                            <Trash2 size={16} />
+                                                        )}
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex items-start justify-between mb-3 pr-16 bg-blue-50/0">
                                                     <div className="flex items-center">
                                                         <div className="h-10 w-10 bg-[#3e8391]/10 rounded-full flex items-center justify-center text-[#3e8391] mr-3">
                                                             <User size={20} />
@@ -350,6 +413,9 @@ const StudentsListTab: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     </div>
+                                                </div>
+
+                                                <div className="flex justify-between items-center mb-3">
                                                     <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-tighter ${student.status === 'ESTUDIANDO' ? 'bg-blue-100 text-blue-800' :
                                                         student.status === 'BAUTIZADO' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                                         }`}>
@@ -373,26 +439,18 @@ const StudentsListTab: React.FC = () => {
                                                     </p>
                                                 </div>
 
-                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 border-t border-gray-100 pt-3">
                                                     <div className="flex items-center gap-1.5">
                                                         <Calendar size={14} className="text-gray-400" />
                                                         <span className="font-mono text-xs font-bold">C.I: {student.cedula}</span>
-                                                        <span className="text-gray-300">|</span>
-                                                        <span className="text-xs whitespace-nowrap">Nac: {student.birthDate}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 overflow-hidden">
                                                         <Phone size={14} className="text-gray-400" />
                                                         <span className="whitespace-nowrap">{student.phone}</span>
                                                     </div>
-                                                    {student.email && (
-                                                        <div className="flex items-center gap-1.5 max-w-[150px]">
-                                                            <Mail size={14} className="text-gray-400" />
-                                                            <span className="truncate text-xs">{student.email}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex items-center gap-1.5 border-l border-gray-100 pl-3">
+                                                    <div className="flex items-center gap-1.5 border-l border-gray-100 pl-3 w-full">
                                                         <MapPin size={14} className="text-gray-400 flex-shrink-0" />
-                                                        <span className="text-xs truncate max-w-[200px]">{student.address}</span>
+                                                        <span className="text-xs truncate">{student.address}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -406,7 +464,135 @@ const StudentsListTab: React.FC = () => {
                     </div>
                 ))
             )}
+
+            {/* Edit Modal */}
+            {editingStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                                <Edit className="mr-2 text-[#3e8391]" size={24} />
+                                Editar Estudiante
+                            </h3>
+                            <button onClick={() => setEditingStudent(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <EditStudentForm
+                                student={editingStudent}
+                                courses={courses}
+                                onSave={handleUpdateStudent}
+                                onCancel={() => setEditingStudent(null)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+    );
+};
+
+// Extracted Edit Form Component for cleaner Modal usage
+const EditStudentForm: React.FC<{
+    student: Student;
+    courses: any[];
+    onSave: (student: Student) => void;
+    onCancel: () => void;
+}> = ({ student, courses, onSave, onCancel }) => {
+    const [formData, setFormData] = useState<Student>(student);
+    const [loading, setLoading] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await onSave(formData);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombres</label>
+                    <input type="text" name="firstName" required value={formData.firstName} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apellidos</label>
+                    <input type="text" name="lastName" required value={formData.lastName} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cédula</label>
+                    <input type="text" name="cedula" required value={formData.cedula} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha Nacimiento</label>
+                    <input type="date" name="birthDate" required value={formData.birthDate} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono</label>
+                    <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                    <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección</label>
+                    <input type="text" name="address" required value={formData.address} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-[#3e8391] uppercase mb-1">Curso Bíblico</label>
+                    <select
+                        name="courseName"
+                        required
+                        value={formData.courseName}
+                        onChange={(e) => {
+                            const selectedCourse = courses.find(c => c.name === e.target.value);
+                            setFormData(prev => ({
+                                ...prev,
+                                courseName: e.target.value,
+                                totalLessons: selectedCourse ? selectedCourse.totalLessons : prev.totalLessons
+                            }));
+                        }}
+                        className="w-full bg-white border border-[#3e8391]/30 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none"
+                    >
+                        {courses.map(course => (
+                            <option key={course.id} value={course.name}>{course.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado</label>
+                    <select name="status" required value={formData.status} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-[#3e8391]/20 focus:border-[#3e8391] outline-none">
+                        <option value="ESTUDIANDO">ESTUDIANDO</option>
+                        <option value="TERMINADO">TERMINADO</option>
+                        <option value="BAUTIZADO">BAUTIZADO</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+                <button type="button" onClick={onCancel} className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" disabled={loading} className="px-6 py-2.5 bg-[#3e8391] text-white font-bold rounded-xl hover:bg-[#2c6a7a] transition-all shadow-lg shadow-[#3e8391]/20 flex items-center">
+                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : <Save size={18} className="mr-2" />}
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
     );
 };
 
